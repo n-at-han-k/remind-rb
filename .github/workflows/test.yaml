@@ -37,29 +37,8 @@ jobs:
       # run dies at the first `Remind::Session.new` rather than in one spec.
       - run: bundle exec rake compile
 
-      - run: bundle exec scampi $(grep -rl '^__END__' lib --include='*.rb' | sort)
+      # All three gems' specs: they share one lib/, so they share one run.
+      # -Ilib because the converter's specs say `require "remind"`.
+      - run: RUBYOPT=-Ilib bundle exec scampi $(grep -rl '^__END__' lib --include='*.rb' | sort)
 
       - run: bundle exec rubocop
-
-  converter:
-    name: rem2ics
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.4"
-
-      - run: sudo apt-get install -y ripgrep
-
-      # The converter is a separate gem that depends on the bindings by path,
-      # so the bindings' library has to exist before its suite can run.
-      - run: |
-          bundle install
-          bundle exec rake compile
-
-      - run: |
-          cd rem2ics
-          bundle install
-          bundle exec rake test

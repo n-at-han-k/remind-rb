@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
 #
-# Every suite in the repository: the bindings, the converter built on them, and
-# the linter beside them. The bindings' suite needs the shared library, so the
-# library is built first -- it is a no-op once it exists and nothing has
-# changed under remind-v*/src.
+# Every suite in the repository. Three gems share this lib/ -- the bindings,
+# the converter and the linter -- so there is one run, not three.
+#
+# The bindings' specs open the shared library, so it is compiled first.
 set -euo pipefail
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$root"
-
-specs() {
-  grep -rl '^__END__' "$1" --include='*.rb' | sort
-}
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # Compiling needs a C toolchain, which lives in the flake devshell; the suites
 # only need the library that comes out of it. So compile when the library is
@@ -26,11 +21,7 @@ else
   rake compile
 fi
 
-echo "==> remind-rb"
-scampi $(specs lib)
-
-echo "==> rem2ics"
-(cd rem2ics && RUBYOPT="-I../lib -Ilib" scampi $(cd .. && specs rem2ics/lib | sed 's|^rem2ics/||'))
-
-echo "==> remlint"
-(cd linter && scampi $(cd .. && specs linter/lib | sed 's|^linter/||'))
+echo "==> specs"
+# -Ilib: the converter's specs say `require "remind"`, because to them the
+# bindings are a gem like any other -- they just happen to share this tree.
+RUBYOPT="-Ilib" scampi $(grep -rl '^__END__' lib --include='*.rb' | sort)

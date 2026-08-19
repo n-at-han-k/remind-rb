@@ -131,9 +131,21 @@ task native: %i[compile gem]
 
 desc "Run the specs co-located in each lib file's __END__ section"
 task test: :compile do
-  # Scoped to lib: the linter and rem2ics beside it are their own gems, with
-  # their own suites and their own Rakefiles.
-  sh "bundle exec scampi $(grep -rl '^__END__' lib --include='*.rb' | sort)"
+  # All three gems' specs: they share this lib/, so they share one run.
+  sh "RUBYOPT=-Ilib scampi $(grep -rl '^__END__' lib --include='*.rb' | sort)"
+end
+
+desc "Lint the Remind files that ship with Remind itself"
+task :smoke do
+  sh "ruby -Ilib exe/remlint remind-v*/examples remind-v*/tests remind-v*/include" do |ok, _status|
+    # A corpus is expected to have offences; the point is that we survive it.
+    puts ok ? "smoke: clean" : "smoke: offences reported (expected)"
+  end
+end
+
+desc "Regenerate lib/remlint/tables.rb from the vendored Remind sources"
+task :tables do
+  sh "ruby tasks/generate_tables.rb remind-v#{Remind::REMIND_VERSION}"
 end
 
 desc "Check the bindings' Ruby against the house cops"

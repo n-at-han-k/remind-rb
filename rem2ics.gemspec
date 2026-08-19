@@ -29,16 +29,17 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 3.3"
 
   spec.files = Dir[
-    "lib/**/*.rb",
-    "exe/*",
-    "README.md",
+    "lib/rem2ics.rb",
+    "lib/rem2ics/**/*.rb",
+    "exe/rem2ics",
+    "docs/rem2ics.md",
     "LICENSE",
   ]
 
   spec.bindir      = "exe"
   spec.executables = ["rem2ics"]
   spec.require_paths = ["lib"]
-  spec.extra_rdoc_files = ["README.md"]
+  spec.extra_rdoc_files = ["docs/rem2ics.md"]
 
   spec.add_dependency "icalendar", "~> 2.12"
   spec.add_dependency "ice_cube", "~> 0.17"

@@ -45,9 +45,13 @@ Gem::Specification.new do |spec|
   # shared library out of it: without the sources there is nothing to bind.
   # Only what `./configure` and the build actually read is included -- not the
   # book PDF, the Perl formatters or the Tcl front end.
+  # Named by subtree, not by `lib/**/*.rb`: three gems share this lib/, the way
+  # ratalada's three share theirs, and a glob would put the converter and the
+  # linter inside the bindings.
   spec.files = Dir[
-    "lib/**/*.rb",
-    "ext/remind/*.{c,rb}",
+    "lib/remind.rb",
+    "lib/remind/**/*.rb",
+    "ext/remind/*.c",
     "README.md",
     "LICENSE",
     "remind-v*/src/*.[ch]",

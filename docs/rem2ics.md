@@ -45,7 +45,7 @@ which is a different day in any month whose 1st is a Monday. The window form
 above is what Remind actually means, and it is emitted only because expanding
 it matched.
 
-`examples/` holds that comparison: `remmy-triggers.rem` is remmy's own test
+`examples/` at the repository root holds that comparison: `remmy-triggers.rem` is remmy's own test
 input, and `remmy-reference.ics` is what remmy makes of it.
 
 ## What maps to what
@@ -76,7 +76,7 @@ input, and `remmy-reference.ics` is what remmy makes of it.
 
 ## Licence
 
-GPL-2.0-only — see [LICENSE](LICENSE).
+GPL-2.0-only — see [LICENSE](../LICENSE).
 
 rem2ics runs entirely through remind-rb, which is Remind, so it carries
 Remind's licence. Copyright (C) 2026 Nathan Kidd; Remind itself is Copyright

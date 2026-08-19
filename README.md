@@ -45,8 +45,12 @@ about the language.
 | `lib/remind/reminder.rb` | one `REM` line: its fields, its message, its dates |
 | `lib/remind/source.rb` | a reminder file, with continuations joined and `INCLUDE`s followed |
 | `.github/workflows/` | `cross-compile.yml` builds the platform gems; `test.yaml` runs the suites |
-| `rem2ics/` | a converter built on all of it — see its README |
-| `linter/` | RemLint, a style linter for reminder files |
+| `lib/rem2ics/`, `exe/rem2ics` | the converter — see [docs/rem2ics.md](docs/rem2ics.md) |
+| `lib/remlint/`, `exe/remlint` | RemLint, a style linter for reminder files — see [docs/remlint.md](docs/remlint.md) |
+
+Three gems share this `lib/`, the way ratalada's three share theirs:
+`remind-rb`, `rem2ics` and `remlint`, each with its own gemspec at the root and
+its own version, all developed from one bundle.
 
 ## Installing
 

@@ -1,8 +1,0 @@
-# frozen_string_literal: true
-
-source "https://rubygems.org"
-
-gemspec
-
-# The bindings this converter is built on, from the repository around it.
-gem "remind-rb", path: ".."

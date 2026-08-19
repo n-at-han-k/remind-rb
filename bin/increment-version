@@ -3,32 +3,41 @@
 
 require "erb"
 require_relative "../lib/remind/version"
-require_relative "../rem2ics/lib/rem2ics/version"
+require_relative "../lib/rem2ics/version"
+require_relative "../lib/remlint/version"
 
 USAGE = <<~TEXT
   Usage:
     bin/increment-version                     bump remind-rb's segment (the 4th)
     bin/increment-version <remind-version>    track a newly vendored Remind, e.g. 06.03.00
-    bin/increment-version rem2ics <segment>   bump rem2ics: major, minor or patch
+    bin/increment-version <gem> <segment>     bump rem2ics or remlint: major, minor or patch
 
   remind-rb's version is <Remind release>.<our release>. The first three
   segments are not ours to choose -- they say which Remind this gem vendors and
   binds -- so bumping them means moving to a new release, which resets our
   segment to 0 and requires the sources to be vendored already.
 
-  rem2ics has its own version: it is a converter, not a packaging of Remind.
+  rem2ics and remlint have versions of their own: one is a converter and the
+  other a linter, and neither is a packaging of Remind.
 TEXT
+
+# Where each of the other two gems keeps its version constant.
+OTHERS = {
+  "rem2ics" => "lib/rem2ics/version.rb",
+  "remlint" => "lib/remlint/version.rb",
+}.freeze
 
 ROOT = File.expand_path("..", __dir__)
 
-# The converter's lockfile pins remind-rb, the gem next door, at a concrete
-# version. It does not follow a bump on its own, so it is regenerated here or
-# it drifts.
+# Each of these lockfiles pins a path gem -- its own, and in the converter's
+# case remind-rb next door -- at a concrete version. They do not follow a bump
+# on their own, so they are regenerated here or they drift.
 #
 # The repository's own Gemfile is not in this list: it names its gems outright
 # for nix's sake and holds no path gem, so a version bump cannot change it.
 GEMFILES = [
   File.join(ROOT, "rem2ics", "Gemfile"),
+  File.join(ROOT, "linter", "Gemfile"),
 ].freeze
 
 def relock
@@ -67,14 +76,8 @@ def bump_remind_rb(version, remind_version)
   File.write(output, ERB.new(File.read(template)).result(binding))
 end
 
-def bump_rem2ics(segment)
-  path = File.join(
-    ROOT,
-    "rem2ics",
-    "lib",
-    "rem2ics",
-    "version.rb",
-  )
+def bump_other(name, segment)
+  path = File.join(ROOT, OTHERS.fetch(name))
   source = File.read(path)
   current = source[/VERSION = "(\d+\.\d+\.\d+)"/, 1] or abort "ERROR: no VERSION in #{path}"
   major, minor, patch = current.split(".").map(&:to_i)
@@ -118,10 +121,11 @@ when /\A\d+\.\d+\.\d+\z/
   relock
   puts "remind-rb: #{current} -> #{version}"
 
-when "rem2ics"
-  current, version = bump_rem2ics(ARGV[1])
+when *OTHERS.keys
+  name = ARGV[0]
+  current, version = bump_other(name, ARGV[1])
   relock
-  puts "rem2ics: #{current} -> #{version}"
+  puts "#{name}: #{current} -> #{version}"
 
 else
   warn USAGE
