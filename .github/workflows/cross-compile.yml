@@ -1,18 +1,22 @@
 name: Cross Compile
 
-# Compiles Remind into per-platform precompiled gems and uploads them as build
-# artifacts. This does NOT publish -- releasing is a manual step you perform
-# with the built gems, via bin/release-gem.
+# Cross-compiles Remind into precompiled, per-platform native gems and uploads
+# them as build artifacts. This does NOT publish -- releasing is a manual step
+# you perform with the built gems, via bin/release-gem.
 #
 # When users install a published precompiled gem, RubyGems serves the one
 # matching their platform (the shared library is already inside), so they need
-# no compiler, no make and no ./configure. That is the whole point: Remind is C,
-# and `gem install` should not be a build.
+# no compiler, no make and no ./configure. That is the point: Remind is C, and
+# `gem install` should not be a build.
 #
-# Every platform builds on its own runner rather than cross-compiling. Remind is
-# configured by a shell script that probes the machine it runs on -- header by
-# header, function by function -- and there is no honest way to answer those
-# probes for a machine you are not on.
+# The images are rb-sys's, which are rake-compiler-dock's: one Linux runner
+# holds every cross toolchain, so the whole platform set comes out of one job
+# each rather than out of whichever runners GitHub still rents. What
+# rb-sys-dock runs inside them is
+#
+#   bundle exec rake native:$RUBY_TARGET gem
+#
+# which is why the Rakefile has tasks by those names.
 
 on:
   push:
@@ -32,29 +36,31 @@ permissions:
   contents: read
 
 jobs:
-  native-gem:
+  ci-data:
+    name: Fetch CI data
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.fetch.outputs.result }}
+    steps:
+      - uses: oxidize-rb/actions/fetch-ci-data@v1
+        id: fetch
+        with:
+          supported-ruby-platforms: true
+
+  cross-gem:
     name: Compile native gem for ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    needs: ci-data
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # Ubuntu 22.04, not latest: the glibc a gem is built against is the
-          # oldest one it will run on, and 22.04's is old enough to cover the
-          # distributions people actually install gems on.
-          - os: ubuntu-22.04
-            platform: x86_64-linux
-          - os: ubuntu-22.04-arm
-            platform: aarch64-linux
-          - os: macos-14
-            platform: arm64-darwin
-          # No x86_64-darwin: GitHub has retired its Intel macOS runners, so a
-          # macos-13 job queues for ever rather than failing. Building it on an
-          # Apple Silicon runner would mean cross-compiling, and ./configure
-          # cannot cross-compile honestly -- its probes work by running the
-          # test programs they compile. An Intel Mac installs the source gem
-          # and runs `rake compile`.
-
+        platform: ${{ fromJSON(needs.ci-data.outputs.result).supported-ruby-platforms }}
+        # Remind is POSIX C -- fork, termios, unistd, glob, sys/inotify -- so
+        # the Windows platforms are not a matter of finding a toolchain. There
+        # is nothing to build there.
+        exclude:
+          - platform: x64-mingw32
+          - platform: x64-mingw-ucrt
     steps:
       - uses: actions/checkout@v4
 
@@ -63,50 +69,18 @@ jobs:
           ruby-version: "3.4"
           bundler-cache: true
 
-      # A library inside a gem must not need something the installing machine
-      # may not have. Remind links readline when configure finds it, and
-      # nothing in the bindings uses it -- it is there for the interactive
-      # prompt of a program this gem does not run. Telling configure's cache
-      # the probe already failed is how you decline it; there is no
-      # --without-readline.
-      - name: Compile and package
-        env:
-          REMIND_RB_CONFIGURE_ARGS: >-
-            ac_cv_lib_readline_readline=no
-            ac_cv_header_readline_readline_h=no
-        run: bundle exec rake native[${{ matrix.platform }}]
-
-      # The gem is only as portable as what its library asks the loader for.
-      # Named exactly, not globbed: -g leaves a libremind.bundle.dSYM directory
-      # of debug symbols beside the library on macOS, and a glob matches both.
-      - name: Show what the library links
-        run: |
-          library="lib/remind/libremind.$(ruby -rrbconfig -e 'print RbConfig::CONFIG["DLEXT"]')"
-          if [ "$RUNNER_OS" = "macOS" ]; then otool -L "$library"; else ldd "$library"; fi
-
-      # Install the gem the way a user would -- from the package, into an empty
-      # GEM_HOME, with the checkout's lib/ nowhere on the load path -- and make
-      # it parse a reminder. A gem that builds but cannot load is not a gem.
-      - name: Install it and use it
-        # env -u: outside the bundle, the way a user is. With bundler's
-        # variables still set, `require "remind"` would load the checkout's
-        # lib/ through the path gem and prove nothing about the package.
-        run: |
-          gem install pkg/remind-rb-*.gem --no-document --local
-          cd "$(mktemp -d)"
-          env -u RUBYOPT -u BUNDLE_GEMFILE -u BUNDLE_PATH -u BUNDLE_FROZEN ruby -e '
-            gem "remind-rb"
-            require "remind"
-            Remind.today = Date.new(2026, 8, 19)
-            reminder = Remind.parse("REM Mon 13 SKIP OMIT Sat Sun MSG payday")
-            dates = reminder.occurrences(limit: 3).to_a
-            abort "wrong dates: #{dates}" unless dates.first.to_s == "2026-09-14"
-            abort "wrong version: #{Remind.version}" unless Remind.version == Remind::REMIND_VERSION
-            puts "#{Remind.library_path}: #{reminder.summary} #{dates.join(", ")}"
-          '
+      - uses: oxidize-rb/actions/cross-gem@v1
+        id: cross-gem
+        with:
+          platform: ${{ matrix.platform }}
+          # One library per platform, not one per Ruby: nothing here is a Ruby
+          # extension. There is no Init_, nothing requires the result, and
+          # Fiddle opens it by path -- so the same .so serves every Ruby that
+          # can load the gem.
+          ruby-versions: "3.4"
 
       - uses: actions/upload-artifact@v4
         with:
           name: cross-gem-${{ matrix.platform }}
-          path: pkg/*.gem
+          path: ${{ steps.cross-gem.outputs.gem-path }}
           if-no-files-found: error

@@ -22,33 +22,97 @@ task :compile do
   puts Remind::Builder.new.call
 end
 
-# Package a precompiled gem for one platform, e.g. `rake native[x86_64-linux]`.
-# CI (cross-compile.yml) drives the platform matrix; each runner builds
-# natively, because Remind is configured by a shell script that probes the
-# machine it runs on and there is no cross-compilation story for that.
+# The platforms a precompiled gem is built for, and the toolchain prefix each
+# one is cross-compiled with inside the rb-sys/rake-compiler-dock images.
 #
-# This is what keeps a compiler off the installing machine: RubyGems serves the
-# gem matching the platform, and the library is already inside it.
-desc "Package a precompiled gem for a platform"
-task :native, [:platform] => :compile do |_task, args|
-  require "bundler"
+# No Windows: Remind is POSIX C -- fork, termios, unistd, glob -- and a mingw
+# build does not get as far as failing usefully.
+CROSS_PLATFORMS = {
+  "x86_64-linux" => "x86_64-linux-gnu",
+  "x86_64-linux-musl" => "x86_64-linux-musl",
+  "aarch64-linux" => "aarch64-linux-gnu",
+  "aarch64-linux-musl" => "aarch64-linux-musl",
+  "arm-linux" => "arm-linux-gnueabihf",
+  "x86_64-darwin" => "x86_64-apple-darwin",
+  "arm64-darwin" => "aarch64-apple-darwin",
+}.freeze
 
-  platform = args[:platform] || Gem::Platform.local.to_s
-  package = "pkg/remind-rb-#{Remind::VERSION}-#{platform}.gem"
+# What `rb-sys-dock --build` runs inside the container is
+#
+#   bundle exec rake native:$RUBY_TARGET gem
+#
+# with RUBY_TARGET naming the platform, so these are the task names it expects
+# to find. `native:<platform>` cross-compiles; `gem` packages what it built.
+def cross_configure_args(platform)
+  host = CROSS_PLATFORMS.fetch(platform)
+  compiler = ["#{host}-gcc", "#{host}-cc", "#{host}-clang"].find { |name| which(name) }
+
+  raise "no cross compiler for #{platform} (tried #{host}-gcc, -cc, -clang)" unless compiler
+
+  # --host is what tells configure it is cross-compiling, and therefore not to
+  # try running the test programs it builds. Remind's configure only ever
+  # compiles and links them -- its one class of run-test, AC_CHECK_SIZEOF, has
+  # been compile-only since autoconf 2.61 -- so there is nothing here that
+  # needs a machine of the target's kind to answer.
+  [
+    "--host=#{host}",
+    "CC=#{compiler}",
+    # A library inside a gem must not need what the installing machine may
+    # lack; nothing in the bindings uses readline.
+    "ac_cv_lib_readline_readline=no",
+    "ac_cv_header_readline_readline_h=no",
+  ].join(" ")
+end
+
+def which(name)
+  ENV.fetch("PATH", "").split(File::PATH_SEPARATOR)
+     .map { |directory| File.join(directory, name) }
+     .find { |path| File.executable?(path) }
+end
+
+def package_for(platform)
+  "pkg/remind-rb-#{Remind::VERSION}-#{platform}.gem"
+end
+
+namespace :native do
+  CROSS_PLATFORMS.each_key do |platform|
+    desc "Cross-compile Remind for #{platform}"
+    task platform do
+      require_relative "lib/remind"
+
+      ENV["REMIND_RB_CONFIGURE_ARGS"] = cross_configure_args(platform)
+      ENV["REMIND_RB_PLATFORM"] = platform
+
+      puts Remind::Builder.new.call
+    end
+  end
+end
+
+# Packages whatever `native:<platform>` just compiled. Named `gem` because
+# that is the second half of the command rb-sys-dock runs.
+desc "Package a precompiled gem for the platform just compiled for"
+task :gem do
+  require "bundler"
+  require_relative "lib/remind/version"
+
+  platform = ENV["REMIND_RB_PLATFORM"] || ENV["RUBY_TARGET"] || Gem::Platform.local.to_s
+  package = package_for(platform)
 
   mkdir_p "pkg"
 
   # Outside the bundle, deliberately. REMIND_RB_PRECOMPILED changes the
   # gemspec's platform and its file list, and to bundler -- which re-reads the
   # gemspec of a path gem on every command -- that is a Gemfile that no longer
-  # matches its lockfile. Under `bundle install --deployment`, as CI runs, that
-  # is a hard error. Packaging is not part of the bundle anyway.
+  # matches its lockfile. Packaging is not part of the bundle anyway.
   Bundler.with_unbundled_env do
     sh({ "REMIND_RB_PRECOMPILED" => platform }, "gem build remind-rb.gemspec --output #{package}")
   end
 
   puts "built #{package}"
 end
+
+desc "Compile and package for this machine's own platform"
+task native: %i[compile gem]
 
 desc "Run the specs co-located in each lib file's __END__ section"
 task test: :compile do
