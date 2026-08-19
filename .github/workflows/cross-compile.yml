@@ -82,10 +82,13 @@ jobs:
       # GEM_HOME, with the checkout's lib/ nowhere on the load path -- and make
       # it parse a reminder. A gem that builds but cannot load is not a gem.
       - name: Install it and use it
+        # env -u: outside the bundle, the way a user is. With bundler's
+        # variables still set, `require "remind"` would load the checkout's
+        # lib/ through the path gem and prove nothing about the package.
         run: |
           gem install pkg/remind-rb-*.gem --no-document --local
           cd "$(mktemp -d)"
-          ruby -e '
+          env -u RUBYOPT -u BUNDLE_GEMFILE -u BUNDLE_PATH -u BUNDLE_FROZEN ruby -e '
             gem "remind-rb"
             require "remind"
             Remind.today = Date.new(2026, 8, 19)

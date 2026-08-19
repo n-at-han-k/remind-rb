@@ -31,11 +31,21 @@ end
 # gem matching the platform, and the library is already inside it.
 desc "Package a precompiled gem for a platform"
 task :native, [:platform] => :compile do |_task, args|
+  require "bundler"
+
   platform = args[:platform] || Gem::Platform.local.to_s
   package = "pkg/remind-rb-#{Remind::VERSION}-#{platform}.gem"
 
   mkdir_p "pkg"
-  sh({ "REMIND_RB_PRECOMPILED" => platform }, "gem build remind-rb.gemspec --output #{package}")
+
+  # Outside the bundle, deliberately. REMIND_RB_PRECOMPILED changes the
+  # gemspec's platform and its file list, and to bundler -- which re-reads the
+  # gemspec of a path gem on every command -- that is a Gemfile that no longer
+  # matches its lockfile. Under `bundle install --deployment`, as CI runs, that
+  # is a hard error. Packaging is not part of the bundle anyway.
+  Bundler.with_unbundled_env do
+    sh({ "REMIND_RB_PRECOMPILED" => platform }, "gem build remind-rb.gemspec --output #{package}")
+  end
 
   puts "built #{package}"
 end
