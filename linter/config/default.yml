@@ -1,0 +1,103 @@
+# RemLint's shipped defaults. A project's own .remlint.yml is merged over this
+# key by key, so setting one option on one rule leaves everything else alone.
+#
+# Every rule understands `Enabled` and `Severity`; the rules with further
+# options list them below. Run `remlint --show-rules` to see what is on.
+#
+# The default split: a rule reports something Remind itself would call an
+# error, or it is off. Style preferences are opt-in, because a linter whose
+# first run is a wall of cosmetic noise is a linter that gets switched off.
+
+# Paths never linted, as shell globs against the path as given.
+Exclude: []
+
+# ---------------------------------------------------------------------------
+# On by default: things Remind rejects, or that break its output.
+# ---------------------------------------------------------------------------
+
+# Whitespace at the end of a line. remind.vim highlights this as an Error --
+# "This will match trailing whitespaces that seem to break rem2ps".
+TrailingWhitespace:
+  Enabled: true
+  Severity: error
+
+# A backslash that looks like a line continuation and is not, because it has a
+# space after it, or because the file ends before the continuation does.
+DanglingContinuation:
+  Enabled: true
+  Severity: error
+
+# IF/IFTRIG/ENDIF, ELSE, and the PUSH/POP context stacks that do not pair up.
+UnbalancedBlocks:
+  Enabled: true
+  Severity: error
+
+# Brackets and parentheses that never close, or that close each other. Remind's
+# own E_MISS_END and E_MISS_RIGHT_PAREN, reported without running the file.
+UnbalancedDelimiters:
+  Enabled: true
+  Severity: error
+
+# Calls with the wrong number of arguments, checked against Remind's function
+# table and against the FSET definitions in the file itself.
+FunctionArity:
+  Enabled: true
+  Severity: error
+
+# A $SysVar that is not one of Remind's. Its namespace is closed, so a name
+# that is not in the table is E_NOSUCH_VAR rather than an empty variable.
+UnknownSystemVariable:
+  Enabled: true
+  Severity: error
+  # Extra $-prefixed names to accept, for a file that is fed variables from
+  # outside -- `remind -i$Latitude=...` and the like.
+  AllowedNames: []
+
+# SET or UNSET on a read-only system variable, or a literal value outside the
+# range Remind's table declares for it.
+SystemVariableAssignment:
+  Enabled: true
+  Severity: error
+
+# Colour components outside 0-255, in SPECIAL COLOR, SPECIAL SHADE and
+# ansicolor(). Remind errors on these; rem2ps silently clamps them.
+ColorComponentRange:
+  Enabled: true
+  Severity: error
+
+# ---------------------------------------------------------------------------
+# Off by default: house style, and the one rule that executes the file.
+# ---------------------------------------------------------------------------
+
+# Command keywords in a case other than the file's own. Off because
+# examples/alignment.rem deliberately mixes MSG and msg to show they are the
+# same thing. EnforcedStyle: upper, lower, or consistent (the file's majority).
+KeywordCase:
+  Enabled: false
+  Severity: info
+  EnforcedStyle: upper
+
+# Physical lines past Max characters. Measured before continuations are joined,
+# so a command that was split to stay inside the margin is not penalised for it.
+LineLength:
+  Enabled: false
+  Severity: info
+  Max: 100
+
+# A licence identifier near the top of the file. Off because it is a project
+# policy, not a Remind fact -- but it is a policy Remind's own examples keep.
+LicenseHeader:
+  Enabled: false
+  Severity: info
+  Pattern: 'SPDX-License-Identifier:\s*\S+'
+  WithinLines: 10
+
+# Remind's own diagnostics, from running the file through Remind.
+#
+# OFF, AND DELIBERATELY SO. Remind has no parse-only mode, so this runs the
+# file. `-r` is passed to disable RUN directives, but INCLUDE still reads and
+# INCLUDECMD still executes. Turn it on for files you trust.
+Syntax:
+  Enabled: false
+  Severity: error
+  Command: remind
