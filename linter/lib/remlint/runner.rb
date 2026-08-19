@@ -22,10 +22,11 @@ module RemLint
     # have none and are where most of the Remind in that directory lives.
     CANDIDATE = /\.(rem|sh|bash)\z|\A[^.]+\z/
 
-    attr_reader :config
+    attr_reader :config, :warnings
 
     def initialize(config = Config.default)
       @config = config
+      @warnings = []
     end
 
     # Returns the offences, worst-placed first in reading order.
@@ -92,7 +93,32 @@ module RemLint
       def lint_source(document, rules)
         found = rules.flat_map { |rule| rule.run(document) }
 
+        note_unavailable(rules)
+
         found.reject { |offense| disabled?(document, offense) }
+      end
+
+      # A rule that could not do its job says so once for the whole run, not
+      # once per file and not silently. `Syntax` is the only one: skipping
+      # quietly would let a build believe it is syntax-checking when the
+      # `remind` it needs is not installed.
+      def note_unavailable(rules)
+        rules.each do |rule|
+          missing = rule.respond_to?(:unavailable) && rule.unavailable
+
+          if missing
+            record(
+              "the Syntax rule is enabled but `#{missing}` is not on PATH, " \
+                                 "so no file was syntax-checked",
+            )
+          end
+        end
+      end
+
+      def record(warning)
+        unless @warnings.include?(warning)
+          @warnings << warning
+        end
       end
 
       # A directive applies to the line it is on and to the line below it, so
@@ -207,6 +233,26 @@ describe "RemLint::Runner" do
 
     it "does not reach a line further than one below the directive" do
       lint.("# remlint:disable TrailingWhitespace\nMSG ok\nMSG hi \n").length.should == 1
+    end
+  end
+
+  describe "run warnings" do
+    it "says once when the Syntax rule cannot find its command" do
+      only_syntax = RemLint::Config.default
+        .only(%w[Syntax])
+        .merge("Syntax" => { "Command" => "definitely-not-installed" })
+      runner = RemLint::Runner.new(only_syntax)
+
+      runner.lint_text("a.rem", "MSG hi\n")
+      runner.lint_text("b.rem", "MSG hi\n")
+
+      runner.warnings.length.should == 1
+      runner.warnings.first.should.match(/is not on PATH, so no file was syntax-checked/)
+    end
+
+    it "says nothing when no rule is short of anything" do
+      RemLint::Runner.new(config).tap { |r| r.lint_text("a.rem", "MSG hi\n") }
+        .warnings.should.be.empty
     end
   end
 

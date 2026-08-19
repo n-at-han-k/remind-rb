@@ -247,8 +247,9 @@ WorldWritableScript:
   Enabled: true
   Severity: error
 
-# A TODO with no COMPLETE-THROUGH, which starts its calculation at Remind's
-# epoch and is therefore overdue by decades on its first run.
+# A TODO with MAX-OVERDUE and no COMPLETE-THROUGH. The calculation then starts
+# at Remind's epoch, the task is decades overdue, and MAX-OVERDUE suppresses
+# it -- so the reminder never appears at all.
 TodoCompleteThrough:
   Enabled: true
   Severity: warning
@@ -270,6 +271,45 @@ AddomitWithoutScanfrom:
 TranslateCommand:
   Enabled: true
   Severity: warning
+
+# A Hebrew month Remind does not know, or a day past that month's length. The
+# lengths were established by asking Remind across seven years, because
+# Heshvan and Kislev vary with the year.
+HebrewDate:
+  Enabled: true
+  Severity: error
+
+# A moon phase or solstice selector outside the four values it accepts.
+MoonPhaseArgument:
+  Enabled: true
+  Severity: error
+
+# A hand-written TAG in TkRemind's TKTAGn namespace, which makes the GUI edit
+# the wrong reminder with no diagnostic at all.
+TkTagNamespace:
+  Enabled: true
+  Severity: warning
+
+# Things a file does that its declared `# remlint:invocation` will not
+# deliver: an unreadable -g sort spec, INFO under plain -p, TODO in a
+# calendar. Silent for a file that declares no invocation.
+InvocationMismatch:
+  Enabled: true
+  Severity: warning
+
+# A language pack that never translates LANGID, so every script branching on
+# `_("LANGID")` takes the English path. A pack is recognised by its day and
+# month names; a file translating a handful of strings is not one.
+LocalizationPack:
+  Enabled: true
+  Severity: info
+
+# Hand-written commands in a file a tool owns and rewrites. Says nothing
+# until GeneratedFiles lists something -- the linter cannot guess a layout.
+GeneratedFileEdited:
+  Enabled: true
+  Severity: warning
+  GeneratedFiles: []
 
 # ---------------------------------------------------------------------------
 # Off by default: house style, and the one rule that executes the file.

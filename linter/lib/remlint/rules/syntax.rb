@@ -27,7 +27,10 @@ module RemLint
     #
     # When `remind` is not on PATH the rule reports nothing rather than
     # failing: a linter that cannot run on a machine without Remind installed
-    # is a linter that cannot run in CI.
+    # is a linter that cannot run in CI. It does say so once, through
+    # `Runner`, because silently not syntax-checking is worse than not
+    # syntax-checking -- a build can otherwise believe it is covered when it
+    # is not.
     class Syntax < Rule
       DEFAULT_COMMAND = "remind"
 
@@ -52,11 +55,18 @@ module RemLint
         "Diagnostics from running the file through Remind itself (off by default)."
       end
 
+      # Set once per run when the configured command is missing, so `Runner`
+      # can say so a single time rather than per file.
+      attr_reader :unavailable
+
       def check
         command = option("Command", DEFAULT_COMMAND)
+        @unavailable = nil
 
         if executable?(command)
           run_remind(command)
+        else
+          @unavailable = command
         end
       end
 
@@ -143,6 +153,14 @@ describe "RemLint::Rules::Syntax" do
 
   it "reports nothing when the configured command is not on PATH" do
     lint.("this is not valid remind at all\n", "Command" => "definitely-not-installed").should.be.empty
+  end
+
+  it "records which command was missing, so the runner can say so once" do
+    rule = RemLint::Rules::Syntax.new("Command" => "definitely-not-installed")
+    source = RemLint::Source.new(path: "t.rem", text: "MSG hi\n")
+
+    rule.run(RemLint::Document.new(source))
+    rule.unavailable.should == "definitely-not-installed"
   end
 
   describe "parsing Remind's diagnostics" do

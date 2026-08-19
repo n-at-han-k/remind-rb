@@ -4,6 +4,7 @@ require_relative "source"
 require_relative "logical_line"
 require_relative "command"
 require_relative "expr_lexer"
+require_relative "invocation"
 require_relative "trigger"
 
 module RemLint
@@ -64,6 +65,13 @@ module RemLint
     # Significant tokens of one logical line, lexed at most once.
     def tokens_for(logical_line)
       @token_cache[logical_line.line] ||= ExprLexer.significant(logical_line.text)
+    end
+
+    # How the file says it is meant to be run, from a
+    # `# remlint:invocation` comment. Undeclared for a file that says nothing,
+    # which is the honest default.
+    def invocation
+      @invocation ||= Invocation.of(self)
     end
 
     # The clauses of one command's trigger, parsed at most once. Rules ask this
@@ -136,6 +144,13 @@ describe "RemLint::Document" do
 
     doc.trigger_for(command).include?("AT").should.be.true
     doc.trigger_for(command).should.be.identical_to doc.trigger_for(command)
+  end
+
+  it "reads the file's declared invocation" do
+    doc = document.("# remlint:invocation remind -pp\nMSG hi\n")
+
+    doc.invocation.should.be.carries_info
+    doc.invocation.should.be.identical_to doc.invocation
   end
 
   it "carries the source's label for messages" do

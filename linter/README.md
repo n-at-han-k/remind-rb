@@ -64,7 +64,7 @@ of `astro`.
 
 ## Rules
 
-47 rules. `remlint --show-rules` lists them with their current state; each
+53 rules. `remlint --show-rules` lists them with their current state; each
 carries its reasoning, and the file and line of the C that settles it, in a
 comment at the top of `lib/remlint/rules/`.
 
@@ -82,7 +82,9 @@ its output, or that fails silently on a day months away:
 `StringEscape` · `DebugCommand` · `ShellMaxlen` · `FunctionRedefinition` ·
 `PushVarsMissingName` · `CallbackSignature` · `IncludePath` ·
 `EasterdateFromToday` · `TimeZoneName` · `WorldWritableScript` ·
-`TodoCompleteThrough` · `AddomitWithoutScanfrom` · `TranslateCommand`
+`TodoCompleteThrough` · `AddomitWithoutScanfrom` · `TranslateCommand` ·
+`HebrewDate` · `MoonPhaseArgument` · `TkTagNamespace` · `InvocationMismatch` ·
+`LocalizationPack` · `GeneratedFileEdited`
 
 **Off by default** — house style, one performance rule, and the one that runs
 the file:
@@ -107,8 +109,22 @@ A linter earns its output by what it does *not* say. The recurring principle:
 - A trigger carrying a bracketed expression suppresses the clause rules that
   depend on knowing what it evaluates to.
 
-`RULES.md` records the full backlog: what was built, what was deferred and why,
-and the ten book premises the source and corpus corrected.
+### Declaring how a file is run
+
+Three checks need the command line rather than the file. Declare it once and
+they work; leave it out and they stay silent.
+
+```remind
+# remlint:invocation remind -pp -g /path/to/file
+```
+
+`InvocationMismatch` then reports an unreadable `-g` sort spec, `INFO` under a
+plain `-p` that will not carry it, and `TODO` under a calendar invocation where
+its semantics do not exist.
+
+`RULES.md` records the full backlog: every one of the 100 ideas built, merged or
+deleted with its reason, and the thirteen book premises the source and corpus
+corrected.
 
 ## Configuration
 
@@ -190,9 +206,10 @@ The linter's own Ruby is checked by the custom cops in `cops/`, configured in
 ### The corpus is the real test
 
 RuboCop's advice for a new cop applies verbatim: run it over a significant
-codebase. Remind ships one, and it earned its keep — **ten** of the rules are
-narrower than they started because the source, the man page or the corpus said
-so, and two of the linter's own bugs surfaced the same way.
+codebase. Remind ships one, and it earned its keep — **fifteen** premises are
+narrower than they started, or gone entirely, because the source, the man page
+or a running binary said so; two of the linter's own bugs surfaced the same way;
+and three rules were built, run, disproven and deleted.
 
 On the current release `remlint` is clean on `examples/`, `include/` (584 files)
 and `contrib/`, and reports 84 offences in `tests/` — all verified by hand, many

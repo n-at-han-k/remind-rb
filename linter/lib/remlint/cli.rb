@@ -121,10 +121,11 @@ module RemLint
       end
 
       def lint(options)
-        config = resolve_config(options)
-        offenses = Runner.new(config).run(options.paths)
+        runner = Runner.new(resolve_config(options))
+        offenses = runner.run(options.paths)
 
         out.print(Formatter.new(template: options.format).render(offenses))
+        runner.warnings.each { |warning| err.puts("remlint: #{warning}") }
 
         exit_code(offenses, options.fail_level)
       end
