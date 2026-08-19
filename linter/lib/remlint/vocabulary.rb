@@ -89,6 +89,19 @@ module RemLint
       [sysvar.name.downcase, sysvar]
     end.freeze
 
+    # Resolved lookups, because the linter asks the same questions about the
+    # same words over and over: every `:name` token in every trigger goes
+    # through `keyword`, and a linear walk of 91 entries per token is the
+    # difference between 3.3 and 1.9 seconds per megabyte. Bounded by the
+    # distinct words in the files being linted.
+    #
+    # Guarded like Rule::REGISTRY: `scampi` re-executes each file's top level
+    # to reach its specs, and an unguarded literal would drop the cache
+    # mid-run.
+    unless defined?(KEYWORD_CACHE)
+      KEYWORD_CACHE = {}
+    end
+
     module_function
 
     # Resolve one whitespace-delimited word the way FindToken does: the first
@@ -101,9 +114,13 @@ module RemLint
       if needle.empty?
         nil
       else
-        KEYWORDS.find do |candidate|
-          needle.length >= candidate.minlen && candidate.name.downcase.start_with?(needle)
-        end
+        KEYWORD_CACHE.fetch(needle) { KEYWORD_CACHE[needle] = resolve(needle) }
+      end
+    end
+
+    def resolve(needle)
+      KEYWORDS.find do |candidate|
+        needle.length >= candidate.minlen && candidate.name.downcase.start_with?(needle)
       end
     end
 
@@ -145,6 +162,13 @@ describe "RemLint::Vocabulary.keyword" do
 
   it "ignores a trailing comma, as TokStrCmp does" do
     RemLint::Vocabulary.keyword("mon,").name.should == "MONDAY"
+  end
+
+  it "caches a resolved word without changing the answer" do
+    RemLint::Vocabulary.keyword("msg").name.should == "MSG"
+    RemLint::Vocabulary.keyword("msg").name.should == "MSG"
+    RemLint::Vocabulary.keyword("frobnicate").should.be.nil
+    RemLint::Vocabulary.keyword("frobnicate").should.be.nil
   end
 
   it "returns nil for a word that is not a keyword" do

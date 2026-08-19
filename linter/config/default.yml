@@ -65,6 +65,46 @@ ColorComponentRange:
   Enabled: true
   Severity: error
 
+# Reminder text pasted into a RUN or INCLUDECMD body outside shell quotes.
+# The body goes through the substitution filter and the result is handed to
+# /bin/sh, so a substitution is a hole in a shell command and what lands in it
+# is data. An apostrophe is the polite failure.
+UnquotedShellSubstitution:
+  Enabled: true
+  Severity: error
+
+# DURATION or TZ on a reminder with no AT clause. A duration needs a start
+# time; a bare date has no instant to convert between zones.
+ClauseRequiresAt:
+  Enabled: true
+  Severity: error
+
+# SATISFY inside an IFTRIG. IFTRIG takes every clause REM does except that
+# one, which is easy to miss when a working REM is copied into an IFTRIG.
+IftrigWithSatisfy:
+  Enabled: true
+  Severity: error
+
+# A % sequence Remind does not substitute, or an argument form left unclosed.
+# Every letter and digit is a real sequence, so this is mostly about
+# punctuation -- but the failure is silent: Remind drops the % and prints the
+# character.
+UnknownSubstitutionSequence:
+  Enabled: true
+  Severity: warning
+
+# A %<Header> reference with no INFO clause of that name on the same command.
+# It expands to nothing, so the reminder reads like a truncation bug.
+InfoSubstitutionWithoutHeader:
+  Enabled: true
+  Severity: warning
+
+# Commands below a line reading exactly __EOF__, which Remind never reads.
+# The marker is a debugging convenience; the failure is leaving it in.
+TextAfterEofMarker:
+  Enabled: true
+  Severity: warning
+
 # ---------------------------------------------------------------------------
 # Off by default: house style, and the one rule that executes the file.
 # ---------------------------------------------------------------------------

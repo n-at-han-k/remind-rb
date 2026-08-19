@@ -4,6 +4,7 @@ require_relative "source"
 require_relative "logical_line"
 require_relative "command"
 require_relative "expr_lexer"
+require_relative "trigger"
 
 module RemLint
   # Everything a rule may look at, built once per source and shared by all of
@@ -16,6 +17,7 @@ module RemLint
   #   logical_lines  continuations joined -- for anything spanning lines
   #   commands       classified -- for anything keyed on which command it is
   #   tokens_for     lexed -- for anything looking inside a command
+  #   trigger_for    clauses located -- for anything keyed on AT, UNTIL, TZ ...
   #
   # Building all of it eagerly except the token streams keeps rules cheap
   # without lexing files no rule looks inside; the token streams are memoised
@@ -28,6 +30,7 @@ module RemLint
       @logical_lines = Joiner.call(source)
       @commands = Classifier.all(@logical_lines)
       @token_cache = {}
+      @trigger_cache = {}
     end
 
     def path
@@ -61,6 +64,16 @@ module RemLint
     # Significant tokens of one logical line, lexed at most once.
     def tokens_for(logical_line)
       @token_cache[logical_line.line] ||= ExprLexer.significant(logical_line.text)
+    end
+
+    # The clauses of one command's trigger, parsed at most once. Rules ask this
+    # rather than scanning tokens themselves, because the trigger/body boundary
+    # is easy to get wrong and expensive to get wrong twice.
+    def trigger_for(command)
+      @trigger_cache[command.line] ||= Trigger.of(
+        tokens_for(command.logical_line),
+        triggered: Trigger.triggered?(command),
+      )
     end
 
     def code_commands
@@ -115,6 +128,14 @@ describe "RemLint::Document" do
 
     doc.tokens_for(line).map(&:type).should.include :function
     doc.tokens_for(line).should.be.identical_to doc.tokens_for(line)
+  end
+
+  it "parses a command's trigger once and reuses the result" do
+    doc = document.("REM Tue AT 15:00 MSG Meet Bob at the pub\n")
+    command = doc.code_commands.first
+
+    doc.trigger_for(command).include?("AT").should.be.true
+    doc.trigger_for(command).should.be.identical_to doc.trigger_for(command)
   end
 
   it "carries the source's label for messages" do
