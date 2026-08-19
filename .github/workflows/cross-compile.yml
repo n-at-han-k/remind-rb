@@ -73,9 +73,11 @@ jobs:
         run: bundle exec rake native[${{ matrix.platform }}]
 
       # The gem is only as portable as what its library asks the loader for.
+      # Named exactly, not globbed: -g leaves a libremind.bundle.dSYM directory
+      # of debug symbols beside the library on macOS, and a glob matches both.
       - name: Show what the library links
         run: |
-          library=$(ls lib/remind/libremind.*)
+          library="lib/remind/libremind.$(ruby -rrbconfig -e 'print RbConfig::CONFIG["DLEXT"]')"
           if [ "$RUNNER_OS" = "macOS" ]; then otool -L "$library"; else ldd "$library"; fi
 
       # Install the gem the way a user would -- from the package, into an empty
