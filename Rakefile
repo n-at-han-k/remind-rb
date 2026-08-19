@@ -28,13 +28,13 @@ end
 # No Windows: Remind is POSIX C -- fork, termios, unistd, glob -- and a mingw
 # build does not get as far as failing usefully.
 CROSS_PLATFORMS = {
-  "x86_64-linux" => "x86_64-linux-gnu",
-  "x86_64-linux-musl" => "x86_64-linux-musl",
-  "aarch64-linux" => "aarch64-linux-gnu",
+  "x86_64-linux"       => "x86_64-linux-gnu",
+  "x86_64-linux-musl"  => "x86_64-linux-musl",
+  "aarch64-linux"      => "aarch64-linux-gnu",
   "aarch64-linux-musl" => "aarch64-linux-musl",
-  "arm-linux" => "arm-linux-gnueabihf",
-  "x86_64-darwin" => "x86_64-apple-darwin",
-  "arm64-darwin" => "aarch64-apple-darwin",
+  "arm-linux"          => "arm-linux-gnueabihf",
+  "x86_64-darwin"      => "x86_64-apple-darwin",
+  "arm64-darwin"       => "aarch64-apple-darwin",
 }.freeze
 
 # What `rb-sys-dock --build` runs inside the container is
@@ -47,7 +47,9 @@ def cross_configure_args(platform)
   host = CROSS_PLATFORMS.fetch(platform)
   compiler = ["#{host}-gcc", "#{host}-cc", "#{host}-clang"].find { |name| which(name) }
 
-  raise "no cross compiler for #{platform} (tried #{host}-gcc, -cc, -clang)" unless compiler
+  unless compiler
+    raise "no cross compiler for #{platform} (tried #{host}-gcc, -cc, -clang)"
+  end
 
   # --host is what tells configure it is cross-compiling, and therefore not to
   # try running the test programs it builds. Remind's configure only ever
