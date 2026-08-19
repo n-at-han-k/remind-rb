@@ -22,19 +22,32 @@ task :compile do
   puts Remind::Builder.new.call
 end
 
-# The platforms a precompiled gem is built for, and the toolchain prefix each
-# one is cross-compiled with inside the rb-sys/rake-compiler-dock images.
+# The platforms a precompiled gem is built for, and the toolchain triplet each
+# is cross-compiled with inside the rb-sys / rake-compiler-dock images.
+#
+# The triplets are not guesses: they are rake-compiler-dock's own
+# platform-to-target table (its Rakefile), which is what its images name their
+# cross compilers after. Two of them are not what the platform name suggests --
+# `x86_64-linux-musl` builds with `x86_64-unknown-linux-musl-gcc`, and
+# `arm-linux` with `arm-linux-gnueabihf-gcc` -- which is exactly why they are
+# copied rather than derived.
 #
 # No Windows: Remind is POSIX C -- fork, termios, unistd, glob -- and a mingw
 # build does not get as far as failing usefully.
 CROSS_PLATFORMS = {
-  "x86_64-linux"       => "x86_64-linux-gnu",
-  "x86_64-linux-musl"  => "x86_64-linux-musl",
   "aarch64-linux"      => "aarch64-linux-gnu",
+  "aarch64-linux-gnu"  => "aarch64-linux-gnu",
   "aarch64-linux-musl" => "aarch64-linux-musl",
   "arm-linux"          => "arm-linux-gnueabihf",
-  "x86_64-darwin"      => "x86_64-apple-darwin",
+  "arm-linux-gnu"      => "arm-linux-gnueabihf",
+  "arm-linux-musl"     => "arm-linux-musleabihf",
   "arm64-darwin"       => "aarch64-apple-darwin",
+  "x86-linux-gnu"      => "i686-linux-gnu",
+  "x86-linux-musl"     => "i686-unknown-linux-musl",
+  "x86_64-darwin"      => "x86_64-apple-darwin",
+  "x86_64-linux"       => "x86_64-linux-gnu",
+  "x86_64-linux-gnu"   => "x86_64-linux-gnu",
+  "x86_64-linux-musl"  => "x86_64-unknown-linux-musl",
 }.freeze
 
 # What `rb-sys-dock --build` runs inside the container is
