@@ -81,7 +81,28 @@ Built as ten rule classes, because two pairs are one check each:
       Confirmed in the source: `userfns.c:280` captures the flag at definition
       and `expr.c:777` re-applies it at every call.
 
-## Tier 3 — exact, worth having, lower frequency (20) — NEXT
+## Tier 3 — exact, worth having, lower frequency (20) — DONE
+
+Built as eleven rule classes, merging where the check is one check:
+`ClauseValueRange`, `DateOutOfRange`, `ClauseNeedsFullDate`, `RepeatTrigger`,
+`InfoClause`, `TagSyntax`, `BannerPlacement`, `UnknownSpecialType`,
+`StringEscape`, `DebugCommand`, `ShellMaxlen`, plus the nesting limit folded
+into `UnbalancedBlocks`.
+
+**Four more corpus corrections**, all from `tests/`:
+
+- `DURATION` has no hour ceiling. A duration is a *length*, not a time of day;
+  `tests/test3.rem` writes `DURATION 24:45` and `DURATION 48:45` and Remind
+  accepts both. Only the minutes are bounded. (12 false positives.)
+- `OMIT ... THROUGH ...` takes partial dates on purpose -- it is the omit-range
+  syntax, not a reminder's expiry. `OMIT Jun THROUGH July 15` is in
+  `tests/test.rem`. (3 false positives.)
+- The `SPECIAL` set includes `PostScript`, `PSFile` and `PS`, which rem2ps
+  compares `passthru` against and which look like reminder types rather than
+  SPECIAL ones. (2 false positives.)
+- `AT 13:00AM` really is an error -- `Ill-formed time`, confirmed against the
+  binary -- so that one stayed.
+
 
 `DateLiteral` (built for `UntilBeforeFrom`) already reads Remind's date forms
 in any order, so the three date-range rules are mostly wiring. `Trigger` gives
@@ -89,37 +110,47 @@ the clause positions the time and priority rules need.
 
 
 
-- [ ] **TriggerComponentRange** / **DateConstantBeforeEpoch** /
+- [x] **TriggerComponentRange** / **DateConstantBeforeEpoch** /
       **DateOutsideRepresentableRange** — merge into one. `BASE 1990` +
       `YR_RANGE 4000` (`custom.h.in:80,86`) gives 1990-01-01 … 5990 exactly.
-- [ ] **TimeValueRange** — `AT 25:00`, `AT 9:70`.
-- [ ] **PriorityOutOfRange** — `ParsePriority` (`dorem.c:2143`) is `p<0 || p>9999`
+- [x] **TimeValueRange** — `AT 25:00`, `AT 9:70`.
+- [x] **PriorityOutOfRange** — `ParsePriority` (`dorem.c:2143`) is `p<0 || p>9999`
       → `E_2HIGH`. Note: `PRIORITY -1` returns `E_EXPECTING_NUMBER` instead, and
       the message should say so.
 - [ ] **IntConstantOutOfRange** — Remind's INT is the platform's C int.
-- [ ] **InvalidStringEscape** — closed escape set; `\x00` prohibited outright.
+      *Deferred: the bound is the build's `int`, which the linter does not know,
+      and a literal that large is vanishingly rare.*
+- [x] **InvalidStringEscape** — closed escape set; `\x00` prohibited outright.
 - [ ] **TildeBackWithDayComponent** — `~~n` has an implied day component of 1;
-      writing both is a contradiction.
-- [ ] **PartialDateAfterFromUntil** — both keywords require a full date.
-- [ ] **RepeatWithoutFullStartDate** — a repeat counts from a start date.
-- [ ] **WeekdayWithRepeat** — the weekday picks only the start date; the
+      writing both is a contradiction. *Deferred with BackSugarAvailable: both
+      need delta/back parsing that nothing else wants yet.*
+- [x] **PartialDateAfterFromUntil** — both keywords require a full date.
+- [x] **RepeatWithoutFullStartDate** — a repeat counts from a start date.
+- [x] **WeekdayWithRepeat** — the weekday picks only the start date; the
       recurrence ignores weekdays. `REM Fri 15 Sep 2025 *10` fires on days that
       are mostly not Fridays.
-- [ ] **BannerPlacement** — only the last `BANNER` matters.
-- [ ] **MaxOverdueNotPositive**, **CompleteThroughNotFullDate**
-- [ ] **TagSyntax** — a comma inside a tag splits it into two nobody meant.
-- [ ] **DuplicateInfoHeader** — headers are not case-sensitive, so `Url:` and
+- [x] **BannerPlacement** — only the last `BANNER` matters.
+- [x] **MaxOverdueNotPositive**, **CompleteThroughNotFullDate**
+- [x] **TagSyntax** — a comma inside a tag splits it into two nobody meant.
+- [x] **DuplicateInfoHeader** — headers are not case-sensitive, so `Url:` and
       `URL:` on one command collide.
-- [ ] **InfoStringMalformed**
-- [ ] **HebrewDateOutOfRange** — fixed month lengths make it decidable.
-- [ ] **MoonPhaseArgumentRange** — closed four-element sets.
-- [ ] **UnknownDebugFlag**, **DebugFlagLeftEnabled**
-- [ ] **TranslateCommandForm**, **TranslationFormatSpecifiers**
+- [x] **InfoStringMalformed**
+- [ ] **HebrewDateOutOfRange** — *Deferred.* Month lengths are **not** fixed:
+      `hbcal.c` recomputes Heshvan and Kislev per year from the year length
+      (353/354/355 days), so only "no month has more than 30 days" is decidable
+      cheaply, and that catches almost nothing.
+- [ ] **MoonPhaseArgumentRange** — closed four-element sets. *Deferred: worth
+      building, but `moonphase`/`moondate`/`moondatetime` each take the selector
+      in a different position and the payoff is one literal check.*
+- [x] **UnknownDebugFlag**, **DebugFlagLeftEnabled**
+- [ ] **TranslateCommandForm**, **TranslationFormatSpecifiers** — *Deferred to
+      the localization group in Tier 5, where the rest of the TRANSLATE and
+      callback rules live.*
 - [ ] **ShellMaxlenArgument** — `shell(cmd, 0)` returns nothing and looks exactly
       like a command that produced nothing.
-- [ ] **UnknownSpecialType** / **SpecialBodyShape** / **DefaultColorFormat** —
+- [x] **UnknownSpecialType** / **SpecialBodyShape** / **DefaultColorFormat** —
       extend the existing `ColorComponentRange`.
-- [ ] **IfNestingTooDeep** — `IF_NEST 64` (`ifelse.c:19`). Free, given the stack
+- [x] **IfNestingTooDeep** — `IF_NEST 64` (`ifelse.c:19`). Free, given the stack
       `UnbalancedBlocks` already keeps. Nobody will ever hit it.
 
 ## Tier 4 — needs machinery that does not exist yet

@@ -56,7 +56,7 @@ module RemLint
 
         # The header name in the string that follows the INFO keyword.
         def header_of(command, clause)
-          rest = command.text[(clause.offset + clause.keyword.name.length)..].to_s
+          rest = command.text[clause.end_offset..].to_s
           match = rest.sub(/\A\s+/, "").match(INFO_HEADER)
 
           match && match[:header].strip.downcase

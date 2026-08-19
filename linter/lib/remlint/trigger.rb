@@ -23,11 +23,20 @@ module RemLint
     Clause = Struct.new(
       :keyword,
       :offset,
+      :end_offset,
       :token_index,
+      :token_width,
       keyword_init: true,
     ) do
       def name
         keyword.name
+      end
+
+      # Where the clause's argument starts, in tokens. A hyphenated keyword
+      # such as `MAX-OVERDUE` occupies three of them, so this is not always
+      # `token_index + 1`.
+      def argument_index
+        token_index + token_width
       end
     end
 
@@ -48,10 +57,18 @@ module RemLint
       @tokens = tokens
       @clauses = []
       @body = nil
+      @triggered = triggered
 
       if triggered
         scan
       end
+    end
+
+    # Whether this command carries a trigger at all. Rules that look for
+    # something positional -- a repeat, a delta -- need it, because `SET a 3*14`
+    # has a `*` in it and no trigger for that `*` to be part of.
+    def triggered?
+      @triggered
     end
 
     def self.of(tokens, triggered: true)
@@ -108,9 +125,7 @@ module RemLint
 
     # Where the body's text begins in the logical line, or nil.
     def body_offset
-      if body
-        body.offset + body.keyword.name.length
-      end
+      body&.end_offset
     end
 
     private
@@ -138,12 +153,22 @@ module RemLint
       def classify(index, token)
         joined = hyphenated(index)
         keyword = Vocabulary.keyword(joined || token.value)
+        if joined
+          width = 3
+        else
+          width = 1
+        end
 
         if keyword.nil?
           1
         else
-          record(keyword, token, index)
-          joined ? 3 : 1
+          record(
+            keyword,
+            token,
+            index,
+            width,
+          )
+          width
         end
       end
 
@@ -162,8 +187,16 @@ module RemLint
         end
       end
 
-      def record(keyword, token, index)
-        clause = Clause.new(keyword: keyword, offset: token.offset, token_index: index)
+      def record(keyword, token, index, width)
+        last = @tokens[index + width - 1]
+
+        clause = Clause.new(
+          keyword:     keyword,
+          offset:      token.offset,
+          end_offset:  last.end_offset,
+          token_index: index,
+          token_width: width,
+        )
 
         if keyword.body?
           @body = clause
@@ -243,6 +276,13 @@ describe "RemLint::Trigger" do
   describe "hyphenated clause keywords" do
     it "resolves them as one keyword" do
       trigger.("REM 1 Jan MAX-OVERDUE 5 MSG hi").include?("MAX-OVERDUE").should.be.true
+    end
+
+    it "reports the argument index past all three tokens" do
+      found = trigger.("REM 1 Jan MAX-OVERDUE 5 MSG hi").find("MAX-OVERDUE")
+
+      found.token_width.should == 3
+      found.argument_index.should == found.token_index + 3
     end
 
     it "does not split one into its halves" do

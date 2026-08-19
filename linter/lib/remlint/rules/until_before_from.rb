@@ -80,7 +80,7 @@ module RemLint
           if clause
             tokens = document.tokens_for(command.logical_line)
 
-            DateLiteral.at(tokens, clause.token_index + 1)
+            DateLiteral.at(tokens, clause.argument_index)
           end
         end
 

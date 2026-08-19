@@ -199,10 +199,17 @@ describe "RemLint::CLI" do
     { status: status, out: out.string, err: err.string }
   end
 
+  # The Tempfile objects are kept, not just their paths: an unreferenced
+  # Tempfile is garbage, and its finalizer unlinks the file. In a short run
+  # nothing collects and the specs pass; in a long one the file vanishes
+  # between being written and being linted.
+  fixtures = []
+
   fixture = proc do |text|
     file = Tempfile.new(["remlint-cli", ".rem"])
     file.write(text)
     file.close
+    fixtures << file
     file.path
   end
 

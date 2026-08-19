@@ -133,6 +133,76 @@ LiteralTypeMismatch:
   Enabled: true
   Severity: error
 
+# An AT, DURATION, PRIORITY or MAX-OVERDUE value outside its range. Remind
+# rejects each, but only on the day the line is reached.
+ClauseValueRange:
+  Enabled: true
+  Severity: error
+
+# A date outside 1990-01-01 to 5990-12-31, or with an impossible component.
+# BASE + YR_RANGE make that range the type rather than a policy.
+DateOutOfRange:
+  Enabled: true
+  Severity: error
+
+# FROM, UNTIL, THROUGH or COMPLETE-THROUGH given a partial date. GetFullDate
+# needs all three components; a TODO with an unusable COMPLETE-THROUGH starts
+# its whole calculation at 1990-01-01.
+ClauseNeedsFullDate:
+  Enabled: true
+  Severity: error
+
+# A *n repeat with no start date to count from, or with a weekday that only
+# picks the start date and is then ignored by the recurrence.
+RepeatTrigger:
+  Enabled: true
+  Severity: warning
+
+# An INFO clause that is malformed or repeats another's header. Headers are
+# not case-sensitive, so Url: and URL: on one command collide.
+InfoClause:
+  Enabled: true
+  Severity: warning
+
+# A TAG containing a comma or whitespace. Tags reach back-ends as a
+# comma-separated list, so a comma inside one splits it in two.
+TagSyntax:
+  Enabled: true
+  Severity: warning
+
+# A second BANNER, which silently replaces the first, or one written below the
+# reminders it appears to apply to.
+BannerPlacement:
+  Enabled: true
+  Severity: warning
+
+# A SPECIAL type no shipped back-end parses. Remind passes any SPECIAL
+# through and a back-end must ignore what it cannot read, so a typo produces
+# no output and no error.
+UnknownSpecialType:
+  Enabled: true
+  Severity: warning
+  # Extra types to accept, for a project with its own back-end.
+  AllowedTypes: []
+
+# A backslash escape Remind does not define, which drops the backslash
+# silently, or the prohibited \x00.
+StringEscape:
+  Enabled: true
+  Severity: warning
+
+# A DEBUG flag Remind does not define, or one switched on and never off --
+# which turns every later run, including the cron one, into a trace log.
+DebugCommand:
+  Enabled: true
+  Severity: warning
+
+# shell() given a maximum length of zero, which returns the empty string
+# whatever the command printed.
+ShellMaxlen:
+  Enabled: true
+  Severity: warning
+
 # ---------------------------------------------------------------------------
 # Off by default: house style, and the one rule that executes the file.
 # ---------------------------------------------------------------------------

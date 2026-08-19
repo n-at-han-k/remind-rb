@@ -35,6 +35,11 @@ module RemLint
 
       CLOSERS = PAIRS.values.uniq.freeze
 
+      # `IF_NEST` in src/ifelse.c. The 65th level is an error rather than a
+      # deeper nesting, and the linter can say so before the file runs -- though
+      # a script at that depth has larger problems than this rule.
+      MAX_IF_DEPTH = 64
+
       # Which openers a given closer is allowed to close.
       OPENERS_FOR = CLOSERS.to_h do |closer|
         [closer, PAIRS.select { |_opener, close| close == closer }.keys]
@@ -63,6 +68,7 @@ module RemLint
         def dispatch(command)
           if PAIRS.key?(keyword_of(command))
             @stack.push({ command: command, else_line: nil })
+            check_depth(command)
           elsif CLOSERS.include?(keyword_of(command))
             close(command)
           elsif command.keyword?("ELSE")
@@ -72,6 +78,18 @@ module RemLint
 
         def keyword_of(command)
           command.keyword&.name
+        end
+
+        def check_depth(command)
+          depth = @stack.count { |frame| conditional?(frame) }
+
+          if depth == MAX_IF_DEPTH + 1 && conditional?(@stack.last)
+            offend(
+              command.line,
+              "`IF` blocks nest #{MAX_IF_DEPTH} deep at most; this is level #{depth}",
+              column: command.keyword_column,
+            )
+          end
         end
 
         def close(command)
@@ -249,6 +267,29 @@ describe "RemLint::Rules::UnbalancedBlocks" do
 
     it "is allowed once in each of two nested IFs" do
       lint.("IF a\nIF b\nMSG x\nELSE\nMSG y\nENDIF\nELSE\nMSG z\nENDIF\n").should.be.empty
+    end
+  end
+
+  describe "nesting depth" do
+    it "accepts 64 levels" do
+      text = ("IF a\n" * 64) + "MSG hi\n" + ("ENDIF\n" * 64)
+
+      lint.(text).should.be.empty
+    end
+
+    it "reports the 65th" do
+      text = ("IF a\n" * 65) + "MSG hi\n" + ("ENDIF\n" * 65)
+      offenses = lint.(text)
+
+      offenses.length.should == 1
+      offenses.first.line.should == 65
+      offenses.first.message.should.match(/nest 64 deep at most; this is level 65/)
+    end
+
+    it "does not count the context stacks toward the IF limit" do
+      text = ("PUSH-OMIT-CONTEXT\n" * 70) + ("POP-OMIT-CONTEXT\n" * 70)
+
+      lint.(text).should.be.empty
     end
   end
 
