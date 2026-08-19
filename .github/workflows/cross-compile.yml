@@ -46,10 +46,14 @@ jobs:
             platform: x86_64-linux
           - os: ubuntu-22.04-arm
             platform: aarch64-linux
-          - os: macos-13
-            platform: x86_64-darwin
           - os: macos-14
             platform: arm64-darwin
+          # No x86_64-darwin: GitHub has retired its Intel macOS runners, so a
+          # macos-13 job queues for ever rather than failing. Building it on an
+          # Apple Silicon runner would mean cross-compiling, and ./configure
+          # cannot cross-compile honestly -- its probes work by running the
+          # test programs they compile. An Intel Mac installs the source gem
+          # and runs `rake compile`.
 
     steps:
       - uses: actions/checkout@v4
