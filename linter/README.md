@@ -64,42 +64,51 @@ of `astro`.
 
 ## Rules
 
-On by default — each reports something Remind itself rejects, or that breaks its
-output:
+47 rules. `remlint --show-rules` lists them with their current state; each
+carries its reasoning, and the file and line of the C that settles it, in a
+comment at the top of `lib/remlint/rules/`.
 
-| Rule | Reports |
-| --- | --- |
-| `TrailingWhitespace` | Whitespace at end of line. `remind.vim` flags this as an **Error**: "seem to break rem2ps". |
-| `DanglingContinuation` | A backslash that does not continue the line, because whitespace follows it or the file ends. |
-| `UnbalancedBlocks` | `IF`/`IFTRIG`/`ENDIF`, `ELSE`, and the `PUSH-`/`POP-` context stacks that do not pair up. |
-| `UnbalancedDelimiters` | Brackets and parentheses that never close, or that cross. Remind's `Missing ']'` and `Missing ')'`. |
-| `FunctionArity` | Calls with the wrong argument count, against Remind's table and the file's own `FSET`s. |
-| `UnknownSystemVariable` | A `$Name` that is not in Remind's table. Its namespace is closed, so this is `E_NOSUCH_VAR`. |
-| `SystemVariableAssignment` | `SET`/`UNSET` on a read-only variable, or a literal value outside its declared range. |
-| `ColorComponentRange` | Colour components outside 0–255 in `SPECIAL COLOR`, `SPECIAL SHADE` and `ansicolor()`. |
+**On by default** — each reports something Remind itself rejects, that breaks
+its output, or that fails silently on a day months away:
 
-Off by default — house style, plus the one rule that executes the file:
+`TrailingWhitespace` · `DanglingContinuation` · `UnbalancedBlocks` ·
+`UnbalancedDelimiters` · `FunctionArity` · `UnknownSystemVariable` ·
+`SystemVariableAssignment` · `ColorComponentRange` · `UnquotedShellSubstitution` ·
+`ClauseRequiresAt` · `IftrigWithSatisfy` · `UnknownSubstitutionSequence` ·
+`InfoSubstitutionWithoutHeader` · `TextAfterEofMarker` · `UntilBeforeFrom` ·
+`CoordinateNotString` · `ShellUseWhileRunDisabled` · `LiteralTypeMismatch` ·
+`ClauseValueRange` · `DateOutOfRange` · `ClauseNeedsFullDate` · `RepeatTrigger` ·
+`InfoClause` · `TagSyntax` · `BannerPlacement` · `UnknownSpecialType` ·
+`StringEscape` · `DebugCommand` · `ShellMaxlen` · `FunctionRedefinition` ·
+`PushVarsMissingName` · `CallbackSignature` · `IncludePath` ·
+`EasterdateFromToday` · `TimeZoneName` · `WorldWritableScript` ·
+`TodoCompleteThrough` · `AddomitWithoutScanfrom` · `TranslateCommand`
 
-| Rule | Reports | Off because |
-| --- | --- | --- |
-| `KeywordCase` | Keywords in a case other than the file's own. | `examples/alignment.rem` deliberately mixes `MSG` and `msg`. |
-| `LineLength` | Physical lines past `Max`. | A margin is a project's business. |
-| `LicenseHeader` | No licence identifier near the top. | Project policy, not a Remind fact. |
-| `Syntax` | Remind's own diagnostics. | It runs the file. `-r` disables `RUN`; `INCLUDECMD` still executes. |
+**Off by default** — house style, one performance rule, and the one that runs
+the file:
 
-`remlint --show-rules` lists them with their current state.
+`KeywordCase` · `LineLength` · `LicenseHeader` · `SatisfyConstraint` ·
+`AdvanceWarningBody` · `CalendarTextLimited` · `OmitAwareDelta` · `Syntax`
+
+`Syntax` is off deliberately: Remind has no parse-only mode, so it runs the
+file. `-r` disables `RUN`; `INCLUDECMD` still executes.
 
 ### Where the rules deliberately stay quiet
 
-A linter earns its output by what it does *not* say. Three silences are load-bearing:
+A linter earns its output by what it does *not* say. The recurring principle:
+**where the linter cannot know, it says nothing.**
 
-- **A closing bracket with nothing open is not an error.** `MSG See note ]`
-  prints a bracket. Only unclosed openers and crossed pairs are reported.
-- **Parentheses only count inside an expression.** `MSG Call (555) 1234` is
-  text. Parentheses are tracked inside `[...]` and in the arguments of `IF`,
-  `SET`, `FSET` and friends — nowhere else.
-- **Unknown functions are not reported.** A file's helpers usually arrive
-  through `INCLUDE`, which one-file linting cannot see.
+- A closing bracket with nothing open is text, not an error — `MSG See note ]`
+  prints a bracket.
+- Parentheses count only inside `[...]` or an expression command; `MSG Call
+  (555) 1234` is text.
+- Unknown functions are not reported: a file's helpers usually arrive through
+  `INCLUDE`, which one-file linting cannot see.
+- A trigger carrying a bracketed expression suppresses the clause rules that
+  depend on knowing what it evaluates to.
+
+`RULES.md` records the full backlog: what was built, what was deferred and why,
+and the ten book premises the source and corpus corrected.
 
 ## Configuration
 
@@ -178,28 +187,34 @@ $ rake smoke[/path/to/remind]     # lint Remind's own corpus
 The linter's own Ruby is checked by the custom cops in `cops/`, configured in
 `.rubocop.yml`.
 
-### The smoke test is the real test
+### The corpus is the real test
 
 RuboCop's advice for a new cop applies verbatim: run it over a significant
-codebase. Remind ships one. On the current release, `remlint` is clean on
-`examples/`, `include/` (584 files) and `contrib/`, and reports 25 offences in
-`tests/` — every one of them a mistake that test suite makes on purpose:
-`tests/if1.rem` opens an `IF` it never closes, `tests/test-pushpop2.rem` pops
-three contexts that were never pushed, `tests/ansicolors.rem` passes `-1` and
-`256` as colour components, and `tests/test.rem` calls `version(1)` and `max()`
-under a heading that reads "Test error messages for function calls with too many
-/ too few args".
+codebase. Remind ships one, and it earned its keep — **ten** of the rules are
+narrower than they started because the source, the man page or the corpus said
+so, and two of the linter's own bugs surfaced the same way.
 
-Two of the rules exist in their current form *because* of that corpus:
+On the current release `remlint` is clean on `examples/`, `include/` (584 files)
+and `contrib/`, and reports 84 offences in `tests/` — all verified by hand, many
+on lines that suite labels "Should fail", "Bad:" or "Diagnosed".
 
-- `FunctionArity` originally took the last `FSET` for a name file-wide.
-  `tests/test.rem` defines `g(x, y)` on line 356 and redefines it as `g(x)` on
-  line 1545, which made three correct calls in between look wrong. A call is now
-  checked against the definition in force above it.
-- `ColorComponentRange` originally picked out number tokens by position and so
-  read `ansicolor(-1, 0, 0)` as an in-range `1`, because the lexer emits the
-  minus sign as its own token. Arguments are now reassembled before being
-  checked.
+A few of the corrections, as a flavour of what a corpus is for:
+
+- **A trailing `%` is documented**, not a stray. It suppresses the newline
+  Remind would otherwise append: `dosubst("hello")` is six characters and
+  `dosubst("hello%")` is five. Flagging it produced 209 false positives.
+- **`DURATION` is a length, not a time of day.** `tests/test3.rem` writes
+  `DURATION 48:45` for an event running over two days, and Remind accepts it.
+- **`AT` is not the only source of a time.** `include/lunar-eclipses.rem`
+  supplies one from a pasted `[utctolocal(...)]` DATETIME, 142 times.
+- **Only some `subst_` names are callbacks.** Remind builds `subst_<c>` for a
+  *single* character, so `subst_a` is one and `subst_a_alt` is an ordinary
+  helper — and `include/lang/` is full of helpers. 45 false positives.
+- **`errmsg Please run [filename()] ...`** in `tests/tstlang.rem` made the
+  trigger parser read the English "run" as the start of a shell body, and then
+  report the rest of the sentence as command injection.
+
+`RULES.md` has the full list.
 
 ## Licence
 

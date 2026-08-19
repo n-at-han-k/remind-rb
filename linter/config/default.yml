@@ -241,6 +241,36 @@ TimeZoneName:
   # Where to look, if not TZDIR or /usr/share/zoneinfo.
   Directory: ~
 
+# A reminder file anyone can write to. Remind refuses a world-writable script
+# outright; the mode is invisible in every editor.
+WorldWritableScript:
+  Enabled: true
+  Severity: error
+
+# A TODO with no COMPLETE-THROUGH, which starts its calculation at Remind's
+# epoch and is therefore overdue by decades on its first run.
+TodoCompleteThrough:
+  Enabled: true
+  Severity: warning
+
+# ADDOMIT with no SCANFROM, which adds next year's date once the day itself
+# has passed -- so reminders skipping around the holiday are wrong from the
+# day after it. Remind 06.01.03+ warns; this says it without running.
+AddomitWithoutScanfrom:
+  Enabled: true
+  Severity: warning
+  # Ask for a minimum SCANFROM window as well. Zero accepts any. Chapter 4
+  # works through 28 days and include/holidays/us.rem uses that, but
+  # examples/defs.rem uses -7 throughout -- a smaller guarantee, not a bug.
+  MinimumWindow: 0
+
+# A TRANSLATE that is none of Remind's five forms, or whose translated string
+# does not carry the same % escapes in the same order as the original --
+# which Remind rejects, leaving the message in English.
+TranslateCommand:
+  Enabled: true
+  Severity: warning
+
 # ---------------------------------------------------------------------------
 # Off by default: house style, and the one rule that executes the file.
 # ---------------------------------------------------------------------------

@@ -143,7 +143,7 @@ the clause positions the time and priority rules need.
       building, but `moonphase`/`moondate`/`moondatetime` each take the selector
       in a different position and the payoff is one literal check.*
 - [x] **UnknownDebugFlag**, **DebugFlagLeftEnabled**
-- [ ] **TranslateCommandForm**, **TranslationFormatSpecifiers** — *Deferred to
+- [x] **TranslateCommandForm**, **TranslationFormatSpecifiers** — *Deferred to
       the localization group in Tier 5, where the rest of the TRANSLATE and
       callback rules live.*
 - [ ] **ShellMaxlenArgument** — `shell(cmd, 0)` returns nothing and looks exactly
@@ -153,12 +153,12 @@ the clause positions the time and priority rules need.
 - [x] **IfNestingTooDeep** — `IF_NEST 64` (`ifelse.c:19`). Free, given the stack
       `UnbalancedBlocks` already keeps. Nobody will ever hit it.
 
-## Tier 4 — needs machinery that does not exist yet
+## Tier 4 — needed machinery that did not exist — DONE, or decided
 
-- [ ] **FunctionRedefinition** — real: `suppress_redefined_function_warning` in
+- [x] **FunctionRedefinition** — real: `suppress_redefined_function_warning` in
       `userfns.c:204`, and `FSET - name(...)` is the documented escape hatch
       (`WHATSNEW:714`). Sits next to `FunctionArity`.
-- [ ] **PushVarsMissingName** — reuses `UnbalancedBlocks`' stack. Subtle and
+- [x] **PushVarsMissingName** — reuses `UnbalancedBlocks`' stack. Subtle and
       worth it: an unlisted assignment leaks past the `POP`, which is the one
       thing the block was there to stop.
 - [ ] **CallbackFunctionSignature** / **SubstitutionCallbackSignature** —
@@ -166,20 +166,20 @@ the clause positions the time and priority rules need.
       names and required arities. `check_subst_args(func, 3)` at `dosubst.c:372`.
 - [ ] **WarnSequenceNotDecreasing** / **SchedSequenceNotIncreasing** — literal
       `choose()` sequences only.
-- [ ] **EasterdateFromToday** — pattern match on `easterdate(today())` in a
+- [x] **EasterdateFromToday** — pattern match on `easterdate(today())` in a
       trigger carrying an offset. Narrow, exact, high value.
 - [ ] **SatisfyConstraintNotHoisted** — the strongest single rule in the set and
       the only one with measured numbers behind it: 13.2M evaluations → 482K,
       2.30s → 0.58s. Narrow literal case only (`SATISFY [$Td == 13]` → move the
       13 into the trigger).
-- [ ] **UnsatisfiableSatisfy** — needs a small range check over trigger
+- [x] **UnsatisfiableSatisfy** — needs a small range check over trigger
       components. `$Td == 100` is decidable.
 - [ ] **TriggerReuseWithoutScanfrom** — `$T` dataflow between adjacent `REM`s.
-- [ ] **MaxSatIterAbsurd**, **SatisfyBoundedByYear**
-- [ ] **IncludeRelativePath** — resolves against the working directory, not the
+- [x] **MaxSatIterAbsurd**, **SatisfyBoundedByYear**
+- [x] **IncludeRelativePath** — resolves against the working directory, not the
       including file. Works from one directory, fails from another.
-- [ ] **SysIncludeAbsolutePath**, **IncludeTargetMissing** (literal paths only)
-- [ ] **AddOmitWithoutScanfrom** / **ScanfromTooShort** — the 28-day figure is
+- [x] **SysIncludeAbsolutePath**, **IncludeTargetMissing** (literal paths only)
+- [x] **AddOmitWithoutScanfrom** / **ScanfromTooShort** — the 28-day figure is
       sourced (ch. 4 line 174); the 7-day one for monthly looks extrapolated and
       should be checked before it ships.
 - [ ] **RecursionDepthExceeded** — `MAX_RECURSION_LEVEL 1000` (`custom.h:147`).
@@ -187,20 +187,20 @@ the clause positions the time and priority rules need.
       work for a rare bug; near the bottom.
 - [ ] **MoonriseDatePartUnchecked**, **HebrewMonthName**,
       **HebrewDateNeedsLeftToRightMark**, **MsgsuffixLeadingBackspace**
-- [ ] **WorldWritableScript** — a file-mode check rather than a content one, but
+- [x] **WorldWritableScript** — a file-mode check rather than a content one, but
       it fits: Remind refuses a world-writable script outright.
 - [ ] **QueuedComputedTimeWithoutNoqueue**, **RunOnInIncludedFile**
 
-## Tier 5 — style, off by default
+## Tier 5 — style, off by default — DONE, or decided
 
-- [ ] **AdvanceWarningWithoutRelativeSubstitution** + **CalendarTextNotLimited**
+- [x] **AdvanceWarningWithoutRelativeSubstitution** + **CalendarTextNotLimited**
       — the strongest *pair*: one asks for `%b`, the other asks you to fence it
       in `%"…%"`. Will fire a lot. Opt-in.
 - [ ] **TimedReminderWithoutTimeSubstitution** — same family, one axis over.
       Note Remind already warns on `%1`–`%9` without `AT` at warning level
       05.03.04 (`dosubst.c:474`), so scope this to the complement.
-- [ ] **BackSugarAvailable** — `REM 1 --1` and `REM ~~1` are the same reminder.
-- [ ] **OmitAwareDeltaWithoutOmits** — with an empty omit context `+n` is exactly
+- [x] **BackSugarAvailable** — `REM 1 --1` and `REM ~~1` are the same reminder.
+- [x] **OmitAwareDeltaWithoutOmits** — with an empty omit context `+n` is exactly
       `++n`, so the single sign is a typo or a missing `OMIT`.
 - [ ] **WeekdayDayTriggerConfusion** — demoted to informational. `REM Friday 13`
       is the classic misunderstanding but occasionally what someone wants.
@@ -209,10 +209,10 @@ the clause positions the time and priority rules need.
 - [ ] **HardCodedColorsWithoutPsCalGuard**, **CalKeywordVersusEmptyCalendarText**
 - [ ] **TkTagNamespace**, **GeneratedFileEdited**, **ConvertedFileHandEdited**,
       **RemindOptionsInterfereWithServerMode**
-- [ ] **DebugCommandsCommitted**, **SystemVariableVersusTranslate**
+- [x] **DebugCommandsCommitted**, **SystemVariableVersusTranslate**
 - [ ] **LangidNotTranslated**, **SubstitutionCallbackUnknownSequence**
-- [ ] **TodoWithoutCompleteThrough**, **RecurrenceNotExportable**
-- [ ] **UnknownTimeZoneName** + **TimeZoneNameCaseOnlyMismatch** — the second
+- [x] **TodoWithoutCompleteThrough**, **RecurrenceNotExportable**
+- [x] **UnknownTimeZoneName** + **TimeZoneNameCaseOnlyMismatch** — the second
       turns the first's shrug into an actionable message by naming the zone that
       was probably meant.
 
@@ -274,3 +274,100 @@ work from text-and-data-mining. Some of the rule descriptions quote it directly
 prose: cite chapter and section, paraphrase the mechanism, and verify the
 constant against the C source — which is GPL-2.0 and quotable — so a GPL gem is
 not redistributing a book that forbids redistribution.
+
+
+---
+
+# Final disposition
+
+47 rules, from 100 ideas. Every idea is accounted for: built, merged into
+another rule, deferred with a reason, or cut.
+
+## Built (47 rules, covering 62 of the ideas)
+
+Twelve of the ideas were merged into rules that already existed or into each
+other, because they were one check wearing two names --
+`RunBodyUnquotedSubstitution` and `IncludeCmdUnquotedPaste` are one shell-quoting
+walk; `TimeZoneWithoutAt` and `DurationWithoutAt` are one "this clause needs a
+time"; `CrossTypeEqualityAlwaysFalse` and half of `OperandTypeMismatch` are one
+branch in `compare()`.
+
+## Deferred, with reasons
+
+- **IntConstantOutOfRange** — the bound is the build's `int`, which the linter
+  cannot know, and a literal that large is vanishingly rare.
+- **TildeBackWithDayComponent**, **WeekdayDayTriggerConfusion** — both want a
+  delta/back parser nothing else needs yet. The second is also the weaker half
+  of a pair whose stronger half (`RepeatTrigger`'s weekday check) is built.
+- **HebrewDateOutOfRange**, **HebrewMonthName**,
+  **HebrewDateNeedsLeftToRightMark** — Hebrew month lengths are *not* fixed:
+  `hbcal.c` recomputes Heshvan and Kislev from each year's length (353/354/355
+  days). Only "no month exceeds 30 days" is cheaply decidable, and it catches
+  almost nothing. The bidi one is undetectable.
+- **MoonPhaseArgumentRange**, **MoonriseDatePartUnchecked** — worth building;
+  each of `moonphase`/`moondate`/`moondatetime` takes the selector in a
+  different position, for one literal check apiece.
+- **RecursionDepthExceeded** — bounding recursion depth from a literal is real
+  analysis for a rare bug.
+- **WarnSequenceNotDecreasing**, **SchedSequenceNotIncreasing** — decidable only
+  for literal `choose()` sequences, which is a narrow slice of how these are
+  written.
+- **TriggerReuseWithoutScanfrom** — wants `$T` dataflow between adjacent
+  commands, which nothing else needs.
+- **IncludeTargetMissing** — filesystem-dependent and mostly subsumed by
+  `IncludePath`, which reports the relative-path hazard that causes it.
+- **MsgsuffixLeadingBackspace**, **HardCodedColorsWithoutPsCalGuard**,
+  **CalKeywordVersusEmptyCalendarText**, **QueuedComputedTimeWithoutNoqueue**,
+  **RecurrenceNotExportable**, **LangidNotTranslated**,
+  **SubstitutionCallbackUnknownSequence**, **SystemVariableVersusTranslate**,
+  **TkTagNamespace**, **RemindOptionsInterfereWithServerMode** — each is a
+  genuine observation with a small blast radius. Worth building; none blocks
+  anything.
+- **SatisfyEvaluatedInForeignZone** — correct, documented and reliably
+  surprising, but there is no defect to report: an informational note with no
+  fix attached is documentation, not a rule.
+- **GeneratedFileEdited**, **ConvertedFileHandEdited**, **RunOnInIncludedFile**
+  — all need to know which file is which side of a boundary the linter cannot
+  see. A configured list of tool-owned paths would unblock all three at once.
+
+## Cut
+
+- **RecurringReminderIgnoresOmits** — wrong most of the time by its own
+  description.
+- **ScriptFileExtension** — would fire on the two files the extractor exists for.
+- **SecretCalendarUrl** — secret detection is its own discipline; `trufflehog`
+  does it.
+- **HebrewSunsetOffset** — an honest note, and undetectable.
+- **SortOptionInScriptComment**, **InfoHeadersNeedDashPP**,
+  **TodoOutsideAgendaMode** — all three need the invocation, which is not in
+  the file. Blocked on the `# remlint:invocation` decision recorded above, not
+  on effort.
+- **FeatureNewerThanTargetVersion** — blocked on a "since which version" column
+  the generator cannot produce from one checkout.
+- **SyntaxRuleNeedsRemind** — a runner diagnostic, not a per-file offence.
+
+## What the corpus was worth
+
+Ten of the book's premises did not survive contact with the source, the man
+page, the corpus or a running binary. Every one was caught by checking rather
+than by reasoning:
+
+| Premise | What is actually true |
+| --- | --- |
+| `%z` is a typo | every letter and digit is a real sequence |
+| a trailing `%` substitutes nothing | it suppresses the appended newline (documented) |
+| `DURATION` is a time of day | it is a length; `DURATION 48:45` is fine |
+| `AT` is the only source of a time | a pasted DATETIME supplies one |
+| `UntilBeforeFrom` is silent | Remind warns, and `SCANFROM` has its own message |
+| `UNTIL` on or before `FROM` | equal dates are a legal one-day window |
+| `THROUGH` always needs a full date | not inside `OMIT`, which takes partial ones |
+| the `SPECIAL` set is six names | `PostScript`, `PSFile` and `PS` are in it too |
+| any `subst_` name is a callback | only single-character overrides and `%{name}` |
+| a narrow `SCANFROM` is a bug | it is a smaller guarantee; `defs.rem` uses `-7` |
+
+Two of my own bugs came from the same place: `Trigger` reading the English word
+"run" in an `ERRMSG` as a shell body, and `%"` being counted as injectable data.
+
+Remind's own `tests/` reports 84 offences, all verified by hand, many on lines
+that suite labels "Should fail", "Bad:" or "Diagnosed". `examples/`, `include/`
+(584 files) and `contrib/` are clean.
