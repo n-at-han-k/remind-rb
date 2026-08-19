@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#
+# Every suite in the repository: the bindings, the converter built on them, and
+# the linter beside them. The bindings' suite needs the shared library, so the
+# library is built first -- it is a no-op once it exists and nothing has
+# changed under remind-v*/src.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+specs() {
+  grep -rl '^__END__' "$1" --include='*.rb' | sort
+}
+
+# Compiling needs a C toolchain, which lives in the flake devshell; the suites
+# only need the library that comes out of it. So compile when the library is
+# missing or older than the sources, and otherwise leave it alone -- that is
+# what lets `bin/test` run outside the devshell as well as inside it.
+library="lib/remind/libremind.$(ruby -rrbconfig -e 'print RbConfig::CONFIG["DLEXT"]')"
+
+if [ -f "$library" ] && [ -z "$(find remind-v*/src ext/remind -newer "$library" \( -name '*.c' -o -name '*.h' \) 2>/dev/null)" ]; then
+  echo "==> compile (up to date)"
+else
+  echo "==> compile"
+  rake compile
+fi
+
+echo "==> remind-rb"
+scampi $(specs lib)
+
+echo "==> rem2ics"
+(cd rem2ics && RUBYOPT="-I../lib -Ilib" scampi $(cd .. && specs rem2ics/lib | sed 's|^rem2ics/||'))
+
+echo "==> remlint"
+(cd linter && scampi $(cd .. && specs linter/lib | sed 's|^linter/||'))

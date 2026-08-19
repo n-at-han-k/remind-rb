@@ -16,32 +16,33 @@
         # cannot claim a version the build does not produce.
         version = lib.head
           (lib.match "[^)]*AC_INIT\\(remind, ([^,)]+).*"
-            (builtins.readFile ./configure.ac));
+            (builtins.readFile ./remind-v06.02.10/configure.ac));
 
-        # What `./configure` and the Makefiles actually reach for. Listed
-        # rather than filtered, because the tree also holds a book PDF, the
-        # Ruby linter and assorted scratch directories that have no business
-        # forcing a rebuild of the C program.
+        # What `./configure` and the Makefiles actually reach for, inside the
+        # vendored upstream tree. Listed rather than filtered, because the
+        # release also holds a book PDF, and the repository around it holds
+        # the Ruby bindings, the linter and assorted scratch directories --
+        # none of which have any business forcing a rebuild of the C program.
         src = lib.fileset.toSource {
-          root = ./.;
+          root = ./remind-v06.02.10;
           fileset = lib.fileset.unions [
-            ./src
-            ./include
-            ./man
-            ./scripts
-            ./resources
-            ./tests
-            ./rem2html
-            ./rem2pdf
-            ./www
-            ./docs # configure reads the release date out of docs/WHATSNEW
-            ./examples
-            ./configure
-            ./configure.ac
-            ./install-sh
-            ./Makefile
-            ./COPYRIGHT
-            ./README.md
+            ./remind-v06.02.10/src
+            ./remind-v06.02.10/include
+            ./remind-v06.02.10/man
+            ./remind-v06.02.10/scripts
+            ./remind-v06.02.10/resources
+            ./remind-v06.02.10/tests
+            ./remind-v06.02.10/rem2html
+            ./remind-v06.02.10/rem2pdf
+            ./remind-v06.02.10/www
+            ./remind-v06.02.10/docs # configure reads the release date out of docs/WHATSNEW
+            ./remind-v06.02.10/examples
+            ./remind-v06.02.10/configure
+            ./remind-v06.02.10/configure.ac
+            ./remind-v06.02.10/install-sh
+            ./remind-v06.02.10/Makefile
+            ./remind-v06.02.10/COPYRIGHT
+            ./remind-v06.02.10/README.md
           ];
         };
 
@@ -124,6 +125,17 @@
 
             preCheck = ''
               export TZDIR=${pkgs.tzdata}/share/zoneinfo
+
+            # Gems install per Ruby version, beside the ones the rest of the
+            # system uses, and this repository's Gemfile is the one bundler
+            # reads -- otherwise whichever project the shell wandered in from
+            # decides what `bundle exec` can find.
+            export GEM_HOME="$HOME/.gem-${pkgs.ruby.version}"
+            export GEM_PATH="$GEM_HOME"
+            # Appended, not prepended: the tools this shell provides -- lefthook
+            # among them -- win over any gem-installed copy of the same name.
+            export PATH="$PATH:$GEM_HOME/bin"
+            export BUNDLE_GEMFILE="$PWD/Gemfile"
             '';
 
             postInstall = lib.optionalString withGui ''
@@ -306,11 +318,34 @@
             pkgs.gdb
             pkgs.cppcheck # the top-level Makefile has a cppcheck target
             pkgs.tzdata # `make test` names real timezones
+
+            # The Ruby side: the bindings, the converter built on them, and
+            # the linter beside them.
+            pkgs.ruby
+            # fiddle left Ruby's standard library in 3.5, so the gemspec names
+            # it -- and building that gem means libffi's headers.
+            pkgs.pkg-config
+            pkgs.libffi
+            pkgs.lefthook # `lefthook install` writes .git/hooks
+            pkgs.trufflehog # what the pre-commit hook scans with
           ];
 
           shellHook = ''
             export TZDIR=${pkgs.tzdata}/share/zoneinfo
-            echo "Remind ${version}.  ./configure --prefix=\$PWD/_install && make && make test"
+
+            # Gems install per Ruby version, beside the ones the rest of the
+            # system uses, and this repository's Gemfile is the one bundler
+            # reads -- otherwise whichever project the shell wandered in from
+            # decides what `bundle exec` can find.
+            export GEM_HOME="$HOME/.gem-${pkgs.ruby.version}"
+            export GEM_PATH="$GEM_HOME"
+            # Appended, not prepended: the tools this shell provides -- lefthook
+            # among them -- win over any gem-installed copy of the same name.
+            export PATH="$PATH:$GEM_HOME/bin"
+            export BUNDLE_GEMFILE="$PWD/Gemfile"
+            echo "Remind ${version} sources are in remind-v${version}/; the Ruby bindings are at the root."
+            echo "C:    cd remind-v${version} && ./configure --prefix=\$PWD/_install && make && make test"
+            echo "Ruby: rake library && rake test"
           '';
         };
       }

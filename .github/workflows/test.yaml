@@ -1,0 +1,65 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-version: ["3.3", "3.4"]
+    name: Ruby ${{ matrix.ruby-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+
+      # scampi discovers co-located `__END__` specs with ripgrep.
+      - run: sudo apt-get install -y ripgrep
+
+      # Compile Remind into lib/ BEFORE the suite runs. Every spec here opens
+      # the library -- that is what a binding is -- so without this the whole
+      # run dies at the first `Remind::Session.new` rather than in one spec.
+      - run: bundle exec rake compile
+
+      - run: bundle exec scampi $(grep -rl '^__END__' lib --include='*.rb' | sort)
+
+      - run: bundle exec rubocop
+
+  converter:
+    name: rem2ics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - run: sudo apt-get install -y ripgrep
+
+      # The converter is a separate gem that depends on the bindings by path,
+      # so the bindings' library has to exist before its suite can run.
+      - run: |
+          bundle install
+          bundle exec rake compile
+
+      - run: |
+          cd rem2ics
+          bundle install
+          bundle exec rake test

@@ -1,0 +1,63 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "erb"
+require_relative "../lib/remind/version"
+
+USAGE = <<~TEXT
+  Usage:
+    bin/increment-version                    bump OUR segment (the 4th)
+    bin/increment-version <remind-version>   track a new Remind release, e.g. 06.03.00
+
+  The gem version is <Remind release>.<our release>. The first three segments
+  are not ours to choose -- they say which version of Remind this gem vendors
+  and binds -- so bumping them means moving to a new release, which also means
+  the sources for it must already be vendored, and resets our segment to 0.
+TEXT
+
+root = File.expand_path("..", __dir__)
+current = Remind::VERSION
+ours = current.split(".").last.to_i
+remind_version = Remind::REMIND_VERSION
+
+case ARGV[0]
+when nil
+  version = "#{current.split(".")[0, 3].join(".")}.#{ours + 1}"
+when /\A\d+\.\d+\.\d+\z/
+  remind_version = ARGV[0]
+  version = "#{remind_version.split(".").map { |part| Integer(part, 10) }.join(".")}.0"
+
+  # Keep the claim honest: the version says which Remind is inside, so moving
+  # it has to move the sources too, or the version lies. Vendoring is a
+  # deliberate act -- unpack the release next to the old one -- and this
+  # refuses to name a release that is not there.
+  vendored = File.join(root, "remind-v#{remind_version}")
+
+  unless File.directory?(File.join(vendored, "src"))
+    abort "ERROR: Remind #{remind_version} is not vendored: no #{vendored}/src"
+  end
+
+  puts "Vendored sources: #{File.basename(vendored)}"
+else
+  warn USAGE
+  exit 1
+end
+
+template_path = File.join(
+  root,
+  "lib",
+  "remind",
+  "version.rb.erb",
+)
+output_path = File.join(
+  root,
+  "lib",
+  "remind",
+  "version.rb",
+)
+
+File.write(output_path, ERB.new(File.read(template_path)).result(binding))
+
+`bundle install`
+
+puts "#{current} -> #{version}"

@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# An IRB with the bindings loaded and the clock pinned, so `Remind.parse` and
+# friends answer the same thing twice.
+
+$LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
+$LOAD_PATH.unshift(File.expand_path("../rem2ics/lib", __dir__))
+
+require "remind"
+require "rem2ics"
+require "irb"
+
+puts "remind-rb #{Remind::VERSION}, Remind #{Remind.version}, library #{Remind.library_path}"
+
+IRB.start(__FILE__)

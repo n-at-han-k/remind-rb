@@ -1,0 +1,32 @@
+/.bundle/
+*.gem
+/lib/remind/libremind.*
+/pkg/
+/tmp/
+
+# The compiled library (built by `rake compile`, shipped inside precompiled gems)
+/lib/remind/libremind.*
+*.so
+*.bundle
+/pkg/
+
+# Generated inside the vendored Remind tree by ./configure and make. The
+# release is checked in as it ships; what building it produces is not.
+/remind-v*/config.log
+/remind-v*/config.status
+/remind-v*/src/Makefile
+/remind-v*/src/config.h
+/remind-v*/src/version.h
+/remind-v*/src/xlat.c
+/remind-v*/src/*.o
+/remind-v*/src/remind
+/remind-v*/src/rem2ps
+/remind-v*/man/*.1
+/remind-v*/www/Makefile
+/remind-v*/rem2html/Makefile
+/remind-v*/rem2html/rem2html
+/remind-v*/rem2pdf/Makefile.PL
+/remind-v*/rem2pdf/Makefile.top
+/remind-v*/rem2pdf/bin/rem2pdf
+/remind-v*/scripts/tkremind
+/remind-v*/_install/
