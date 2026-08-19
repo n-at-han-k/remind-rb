@@ -70,12 +70,11 @@ end
 
 puts
 
-# --- 1. No drift: every suite must pass before anything is published. ---------
-puts "Running every suite..."
-system(File.join(__dir__, "test")) || abort("ERROR: tests failed; refusing to release")
-puts
+# Nothing here compiles, and nothing here runs a suite. The platform gems are
+# built on GitHub by cross-compile.yml and downloaded below; the suites run
+# there too, in test.yaml. A release is a download and ten pushes.
 
-# --- 2. Each gem must be ahead of what is already published. ------------------
+# --- 1. Each gem must be ahead of what is already published. ------------------
 releasing.each do |gem|
   remote = `gem specification #{gem[:name]} version --remote 2>&1`
 
@@ -92,7 +91,7 @@ releasing.each do |gem|
 end
 puts
 
-# --- 3. Build everything before pushing anything. -----------------------------
+# --- 2. Build the pure-Ruby gems, and download the compiled ones. -------------
 # A bad build then aborts the whole release rather than leaving half of it on
 # RubyGems with a dependency pointing at a version that never arrived.
 FileUtils.rm_rf(PKG_DIR)
@@ -170,7 +169,7 @@ packages = releasing.to_h do |gem|
 end
 puts
 
-# --- 4. Push in dependency order, tolerating what is already there. -----------
+# --- 3. Push in dependency order, tolerating what is already there. -----------
 # A release that dies partway through can simply be re-run.
 def push(package)
   puts "Pushing #{File.basename(package)}..."
