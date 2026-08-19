@@ -5,14 +5,16 @@ require "fileutils"
 require "open3"
 
 require_relative "../lib/remind/version"
-require_relative "../rem2ics/lib/rem2ics/version"
+require_relative "../lib/rem2ics/version"
+require_relative "../lib/remlint/version"
 
-# Releases both gems in this repository:
+# Releases the three gems in this repository:
 #
 #   remind-rb   the bindings. Published as a source gem AND as one precompiled
 #               gem per platform, built in CI by cross-compile.yml with the
 #               shared library already inside, so installing compiles nothing.
 #   rem2ics     the converter. Pure Ruby, built here.
+#   remlint     the linter. Pure Ruby, built here, and dependent on neither.
 #
 # Push order matters: rem2ics depends on remind-rb, so the bindings go first.
 # Each carries its own version -- one tracks Remind, the other does not -- so
@@ -31,15 +33,19 @@ GEMS = [
   {
     name:        "remind-rb",
     version:     Remind::VERSION,
-    directory:   ".",
     gemspec:     "remind-rb.gemspec",
     precompiled: true,
   },
   {
     name:        "rem2ics",
     version:     Rem2ics::VERSION,
-    directory:   "rem2ics",
     gemspec:     "rem2ics.gemspec",
+    precompiled: false,
+  },
+  {
+    name:        "remlint",
+    version:     RemLint::VERSION,
+    gemspec:     "remlint.gemspec",
     precompiled: false,
   },
 ].freeze
@@ -102,7 +108,7 @@ def build(gem)
     gem[:gemspec],
     "--output",
     package,
-    chdir: File.join(ROOT, gem[:directory]),
+    chdir: ROOT,
   ) ||
     abort("ERROR: gem build failed for #{gem[:name]}")
 

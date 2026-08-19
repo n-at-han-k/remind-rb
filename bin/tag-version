@@ -2,15 +2,17 @@
 # frozen_string_literal: true
 
 require_relative "../lib/remind/version"
-require_relative "../rem2ics/lib/rem2ics/version"
+require_relative "../lib/rem2ics/version"
+require_relative "../lib/remlint/version"
 
-# Tags one gem at its own version. The two here release independently -- one
+# Tags one gem at its own version. The three here release independently -- one
 # tracks Remind, the other does not -- so a bare `v6.2.10.0` would be a tag
 # that does not say what it is for.
 
 VERSIONS = {
   "remind-rb" => Remind::VERSION,
   "rem2ics"   => Rem2ics::VERSION,
+  "remlint"   => RemLint::VERSION,
 }.freeze
 
 name = ARGV[0]
