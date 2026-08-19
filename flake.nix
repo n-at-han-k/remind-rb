@@ -46,6 +46,21 @@
           ];
         };
 
+        # The Ruby side's gems, from nix rather than from `bundle install`:
+        # Gemfile.lock pins them, gemset.nix (regenerated with `bundix -l`)
+        # says where nix fetches each one, and bundlerEnv puts the lot on PATH
+        # already resolved. Nothing writes to a GEM_HOME.
+        # The Ruby side's gems, from nix rather than from `bundle install`:
+        # Gemfile.lock pins them and gemset.nix says where nix fetches each
+        # one. Regenerate the latter with `bundix -l` after touching either.
+        gems = pkgs.bundlerEnv {
+          name = "remind-rb";
+          ruby = pkgs.ruby;
+          gemfile = ./Gemfile;
+          lockfile = ./Gemfile.lock;
+          gemset = ./gemset.nix;
+        };
+
         # rem2pdf and rem2html are Perl, and their Makefiles quietly skip
         # installation when a module is missing rather than failing -- so the
         # only way to know they were built is to put the modules there and
@@ -126,16 +141,6 @@
             preCheck = ''
               export TZDIR=${pkgs.tzdata}/share/zoneinfo
 
-            # Gems install per Ruby version, beside the ones the rest of the
-            # system uses. BUNDLE_GEMFILE is deliberately NOT set: there are two
-            # bundles here -- the bindings' and the converter's -- and pinning
-            # one of them makes `bundle install` in the other write its lockfile
-            # to the wrong place.
-            export GEM_HOME="$HOME/.gem-${pkgs.ruby.version}"
-            export GEM_PATH="$GEM_HOME"
-            # Appended, not prepended: the tools this shell provides -- lefthook
-            # among them -- win over any gem-installed copy of the same name.
-            export PATH="$PATH:$GEM_HOME/bin"
             '';
 
             postInstall = lib.optionalString withGui ''
@@ -320,12 +325,18 @@
             pkgs.tzdata # `make test` names real timezones
 
             # The Ruby side: the bindings, the converter built on them, and
-            # the linter beside them.
-            pkgs.ruby
-            # fiddle left Ruby's standard library in 3.5, so the gemspec names
+            # the linter beside them. gems.wrappedRuby is a ruby that already
+            # sees the bundle, so `scampi`, `rubocop` and `rake` work without
+            # `bundle exec` and without installing anything.
+            gems
+            gems.wrappedRuby
+            pkgs.bundix # regenerates gemset.nix from Gemfile.lock
+            # fiddle left Ruby's standard library in 3.5, so the Gemfile names
             # it -- and building that gem means libffi's headers.
             pkgs.pkg-config
             pkgs.libffi
+            pkgs.libyaml
+            pkgs.openssl
             pkgs.lefthook # `lefthook install` writes .git/hooks
             pkgs.trufflehog # what the pre-commit hook scans with
           ];
@@ -333,16 +344,6 @@
           shellHook = ''
             export TZDIR=${pkgs.tzdata}/share/zoneinfo
 
-            # Gems install per Ruby version, beside the ones the rest of the
-            # system uses. BUNDLE_GEMFILE is deliberately NOT set: there are two
-            # bundles here -- the bindings' and the converter's -- and pinning
-            # one of them makes `bundle install` in the other write its lockfile
-            # to the wrong place.
-            export GEM_HOME="$HOME/.gem-${pkgs.ruby.version}"
-            export GEM_PATH="$GEM_HOME"
-            # Appended, not prepended: the tools this shell provides -- lefthook
-            # among them -- win over any gem-installed copy of the same name.
-            export PATH="$PATH:$GEM_HOME/bin"
             echo "Remind ${version} sources are in remind-v${version}/; the Ruby bindings are at the root."
             echo "C:    cd remind-v${version} && ./configure --prefix=\$PWD/_install && make && make test"
             echo "Ruby: rake library && rake test"

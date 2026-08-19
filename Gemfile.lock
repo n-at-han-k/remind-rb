@@ -1,17 +1,20 @@
-PATH
-  remote: .
-  specs:
-    remind-rb (6.2.10.1)
-      fiddle (~> 1.1)
-
 GEM
   remote: https://rubygems.org/
   specs:
     ast (2.4.3)
+    base64 (0.3.0)
     fiddle (1.1.6)
+    icalendar (2.12.4)
+      base64
+      ice_cube (~> 0.16)
+      logger
+      ostruct
+    ice_cube (0.17.0)
     json (2.21.2)
     language_server-protocol (3.17.0.6)
     lint_roller (1.1.0)
+    logger (1.7.0)
+    ostruct (0.6.3)
     parallel (2.1.0)
     parser (3.3.12.0)
       ast (~> 2.4.1)
@@ -46,8 +49,10 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  fiddle (~> 1.1)
+  icalendar (~> 2.12)
+  ice_cube (~> 0.17)
   rake (~> 13.0)
-  remind-rb!
   rubocop (~> 1.88)
   scampi (~> 1.0)
 

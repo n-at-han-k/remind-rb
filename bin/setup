@@ -7,6 +7,9 @@ IFS=$'\n\t'
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "1/3 Installing bundles"
+# Inside `nix develop` the gems are already there -- bundlerEnv builds them
+# from Gemfile.lock and gemset.nix -- so this is for anyone outside it. The
+# converter has its own bundle because it is its own gem.
 bundle install
 (cd rem2ics && bundle install)
 

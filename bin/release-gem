@@ -21,24 +21,25 @@ require_relative "../rem2ics/lib/rem2ics/version"
 #
 # Pass --dry-run to build and verify without pushing.
 
-DRY_RUN = ARGV.delete("--dry-run") ? true : false
+# `delete` answers the argument when it was there, and nil when it was not.
+DRY_RUN = !ARGV.delete("--dry-run").nil?
 
 WORKFLOW = "cross-compile.yml"
 PKG_DIR = "pkg"
 
 GEMS = [
   {
-    name: "remind-rb",
-    version: Remind::VERSION,
-    directory: ".",
-    gemspec: "remind-rb.gemspec",
+    name:        "remind-rb",
+    version:     Remind::VERSION,
+    directory:   ".",
+    gemspec:     "remind-rb.gemspec",
     precompiled: true,
   },
   {
-    name: "rem2ics",
-    version: Rem2ics::VERSION,
-    directory: "rem2ics",
-    gemspec: "rem2ics.gemspec",
+    name:        "rem2ics",
+    version:     Rem2ics::VERSION,
+    directory:   "rem2ics",
+    gemspec:     "rem2ics.gemspec",
     precompiled: false,
   },
 ].freeze
@@ -53,8 +54,14 @@ if releasing.empty?
   abort "Usage: bin/release-gem [#{GEMS.map { |gem| gem[:name] }.join("|")}] [--dry-run]"
 end
 
-puts "Releasing #{releasing.map { |gem| "#{gem[:name]} #{gem[:version]}" }.join(", ")}" \
-     "#{" (dry run)" if DRY_RUN}"
+banner = releasing.map { |gem| "#{gem[:name]} #{gem[:version]}" }.join(", ")
+
+if DRY_RUN
+  puts "Releasing #{banner} (dry run)"
+else
+  puts "Releasing #{banner}"
+end
+
 puts
 
 # --- 1. No drift: every suite must pass before anything is published. ---------
@@ -89,7 +96,14 @@ def build(gem)
   puts "Building #{gem[:gemspec]}..."
   package = File.join(ROOT, PKG_DIR, "#{gem[:name]}-#{gem[:version]}.gem")
 
-  system("gem", "build", gem[:gemspec], "--output", package, chdir: File.join(ROOT, gem[:directory])) ||
+  system(
+    "gem",
+    "build",
+    gem[:gemspec],
+    "--output",
+    package,
+    chdir: File.join(ROOT, gem[:directory]),
+  ) ||
     abort("ERROR: gem build failed for #{gem[:name]}")
 
   package
@@ -98,8 +112,9 @@ end
 # The precompiled gems are not built here -- they are built on the platforms
 # they are for, by CI, because ./configure probes the machine it runs on.
 def download_precompiled(gem)
-  abort "ERROR: the GitHub CLI (gh) is required to fetch precompiled gems: https://cli.github.com" \
-    unless system("gh --version > /dev/null 2>&1")
+  unless system("gh --version > /dev/null 2>&1")
+    abort "ERROR: the GitHub CLI (gh) is required to fetch precompiled gems: https://cli.github.com"
+  end
 
   puts "Locating latest successful #{WORKFLOW} run..."
   run_id = `gh run list --workflow=#{WORKFLOW} --status success --limit 1 --json databaseId --jq '.[0].databaseId'`.strip
@@ -109,7 +124,16 @@ def download_precompiled(gem)
   end
 
   puts "Downloading precompiled gems from run #{run_id}..."
-  system("gh", "run", "download", run_id, "--dir", PKG_DIR, "--pattern", "cross-gem-*") ||
+  system(
+    "gh",
+    "run",
+    "download",
+    run_id,
+    "--dir",
+    PKG_DIR,
+    "--pattern",
+    "cross-gem-*",
+  ) ||
     abort("ERROR: failed to download artifacts from run #{run_id}")
 
   found = Dir["#{PKG_DIR}/**/#{gem[:name]}-#{gem[:version]}-*.gem"].sort
@@ -117,7 +141,9 @@ def download_precompiled(gem)
   if found.empty?
     built = Dir["#{PKG_DIR}/**/*.gem"].map { |path| File.basename(path) }
 
-    abort "ERROR: run #{run_id} produced no gems." if built.empty?
+    if built.empty?
+      abort "ERROR: run #{run_id} produced no gems."
+    end
     abort "ERROR: the latest CI run built #{built.join(", ")}, not version #{gem[:version]}.\n" \
           "Push #{gem[:version]} to main, wait for #{WORKFLOW} to finish, then re-run."
   end
@@ -130,7 +156,9 @@ end
 
 packages = releasing.to_h do |gem|
   built = [build(gem)]
-  built += download_precompiled(gem) if gem[:precompiled]
+  if gem[:precompiled]
+    built += download_precompiled(gem)
+  end
 
   [gem[:name], built]
 end
@@ -143,14 +171,15 @@ def push(package)
   out, status = Open3.capture2e("gem", "push", package)
   print out
 
-  return if status.success?
-
-  if out.include?("has already been pushed")
+  # Already published is not a failure: it is what a re-run of a release that
+  # died partway through looks like.
+  if status.success?
+    nil
+  elsif out.include?("has already been pushed")
     puts "  (already published -- skipping)"
-    return
+  else
+    abort "ERROR: gem push failed for #{package}"
   end
-
-  abort "ERROR: gem push failed for #{package}"
 end
 
 releasing.each do |gem|

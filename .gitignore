@@ -30,3 +30,6 @@
 /remind-v*/rem2pdf/bin/rem2pdf
 /remind-v*/scripts/tkremind
 /remind-v*/_install/
+
+# direnv (.envrc runs `use flake` and `bundix -l`)
+/.direnv/

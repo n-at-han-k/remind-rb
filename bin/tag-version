@@ -10,14 +10,16 @@ require_relative "../rem2ics/lib/rem2ics/version"
 
 VERSIONS = {
   "remind-rb" => Remind::VERSION,
-  "rem2ics" => Rem2ics::VERSION,
+  "rem2ics"   => Rem2ics::VERSION,
 }.freeze
 
 name = ARGV[0]
 version = VERSIONS[name] or abort "Usage: bin/tag-version <#{VERSIONS.keys.join("|")}>"
 tag = "#{name}-v#{version}"
 
-abort "ERROR: Tag #{tag} already exists" unless `git tag -l #{tag}`.strip.empty?
+unless `git tag -l #{tag}`.strip.empty?
+  abort "ERROR: Tag #{tag} already exists"
+end
 
 system("git", "tag", tag) || abort("ERROR: Failed to create tag #{tag}")
 puts "Tagged #{tag}"

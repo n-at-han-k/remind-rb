@@ -21,11 +21,13 @@ TEXT
 
 ROOT = File.expand_path("..", __dir__)
 
-# The lockfiles pin the path gems -- remind-rb here, remind-rb and rem2ics in
-# the converter's bundle -- at a concrete version. They do not follow a bump on
-# their own, so they are regenerated in lockstep or they drift.
+# The converter's lockfile pins remind-rb, the gem next door, at a concrete
+# version. It does not follow a bump on its own, so it is regenerated here or
+# it drifts.
+#
+# The repository's own Gemfile is not in this list: it names its gems outright
+# for nix's sake and holds no path gem, so a version bump cannot change it.
 GEMFILES = [
-  File.join(ROOT, "Gemfile"),
   File.join(ROOT, "rem2ics", "Gemfile"),
 ].freeze
 
@@ -39,22 +41,40 @@ def relock
       "bundle",
       "install",
       chdir: File.dirname(gemfile),
-      out: File::NULL,
+      out:   File::NULL,
     )
 
-    abort "ERROR: bundle install failed for #{relative}" unless ok
+    unless ok
+      abort "ERROR: bundle install failed for #{relative}"
+    end
   end
 end
 
 def bump_remind_rb(version, remind_version)
-  template = File.join(ROOT, "lib", "remind", "version.rb.erb")
-  output = File.join(ROOT, "lib", "remind", "version.rb")
+  template = File.join(
+    ROOT,
+    "lib",
+    "remind",
+    "version.rb.erb",
+  )
+  output = File.join(
+    ROOT,
+    "lib",
+    "remind",
+    "version.rb",
+  )
 
   File.write(output, ERB.new(File.read(template)).result(binding))
 end
 
 def bump_rem2ics(segment)
-  path = File.join(ROOT, "rem2ics", "lib", "rem2ics", "version.rb")
+  path = File.join(
+    ROOT,
+    "rem2ics",
+    "lib",
+    "rem2ics",
+    "version.rb",
+  )
   source = File.read(path)
   current = source[/VERSION = "(\d+\.\d+\.\d+)"/, 1] or abort "ERROR: no VERSION in #{path}"
   major, minor, patch = current.split(".").map(&:to_i)
@@ -89,8 +109,9 @@ when /\A\d+\.\d+\.\d+\z/
   # Keep the claim honest: the version says which Remind is inside, so moving
   # it has to move the sources too, or the version lies.
   vendored = File.join(ROOT, "remind-v#{remind_version}")
-  abort "ERROR: Remind #{remind_version} is not vendored: no #{vendored}/src" unless
-    File.directory?(File.join(vendored, "src"))
+  unless File.directory?(File.join(vendored, "src"))
+    abort "ERROR: Remind #{remind_version} is not vendored: no #{vendored}/src"
+  end
 
   puts "Vendored sources: #{File.basename(vendored)}"
   bump_remind_rb(version, remind_version)
