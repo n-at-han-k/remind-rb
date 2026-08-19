@@ -203,9 +203,72 @@ ShellMaxlen:
   Enabled: true
   Severity: warning
 
+# A function redefined without the FSET - form that says the redefinition is
+# deliberate. Remind warns; this says where the `-` goes.
+FunctionRedefinition:
+  Enabled: true
+  Severity: warning
+
+# A variable SET inside a PUSH-VARS block the PUSH-VARS never named, so the
+# assignment survives the POP -- the one thing the block was there to stop.
+PushVarsMissingName:
+  Enabled: true
+  Severity: warning
+
+# A Remind callback defined with the wrong arity. Remind checks the shape and
+# walks away, so the callback is simply never called.
+CallbackSignature:
+  Enabled: true
+  Severity: warning
+
+# INCLUDE with a relative path, which resolves against the working directory
+# rather than the file's, or SYSINCLUDE with an absolute one.
+IncludePath:
+  Enabled: true
+  Severity: warning
+
+# easterdate(today()) in a trigger with an offset. On the day itself the
+# function has already jumped a year ahead, so the reminder never fires.
+EasterdateFromToday:
+  Enabled: true
+  Severity: warning
+
+# A TZ name the zone database does not have, or one differing only in case.
+# Reads /usr/share/zoneinfo; reports nothing where there is none to read.
+TimeZoneName:
+  Enabled: true
+  Severity: warning
+  # Where to look, if not TZDIR or /usr/share/zoneinfo.
+  Directory: ~
+
 # ---------------------------------------------------------------------------
 # Off by default: house style, and the one rule that executes the file.
 # ---------------------------------------------------------------------------
+
+# A SATISFY constraint the trigger could name directly, one no date can
+# satisfy, or a year bound that wants to be an UNTIL. The book measures the
+# first: 13.2M expression evaluations become 482K, and 2.30s becomes 0.58s.
+SatisfyConstraint:
+  Enabled: false
+  Severity: info
+
+# A reminder with a delta or an AT whose body never says when the event is.
+# Pairs with CalendarTextLimited: this one asks for %b, that one fences it.
+AdvanceWarningBody:
+  Enabled: false
+  Severity: info
+
+# A relative-date substitution with no %" ... %" limit, so it follows the
+# reminder into a calendar box where it is wrong.
+CalendarTextLimited:
+  Enabled: false
+  Severity: info
+
+# A single-sign delta in a file that omits nothing, where it is exactly the
+# doubled form -- so either the sign or an OMIT is missing.
+OmitAwareDelta:
+  Enabled: false
+  Severity: info
 
 # Command keywords in a case other than the file's own. Off because
 # examples/alignment.rem deliberately mixes MSG and msg to show they are the
