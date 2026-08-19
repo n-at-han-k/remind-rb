@@ -61,6 +61,7 @@ jobs:
         exclude:
           - platform: x64-mingw32
           - platform: x64-mingw-ucrt
+          - platform: aarch64-mingw-ucrt
     steps:
       - uses: actions/checkout@v4
 
@@ -69,10 +70,26 @@ jobs:
           ruby-version: "3.4"
           bundler-cache: true
 
+      # rb-sys-dock bind-mounts $HOME/.cargo/registry into the container. The
+      # runner image ships rustup, so $HOME/.cargo exists and is chosen -- but
+      # nothing has ever put a crate in it, so registry/ does not exist and
+      # docker refuses the mount:
+      #
+      #   invalid mount config for type "bind": bind source path does not
+      #   exist: /home/runner/.cargo/registry
+      #
+      # Rust is not otherwise involved here. This is one empty directory to
+      # satisfy a mount for a language this gem does not use.
+      - name: Create the cargo registry rb-sys-dock mounts
+        run: mkdir -p ~/.cargo/registry
+
       - uses: oxidize-rb/actions/cross-gem@v1
         id: cross-gem
         with:
           platform: ${{ matrix.platform }}
+          # No Rust, so no cargo cache worth cleaning -- and the step that does
+          # it downloads a crate binary from a mirror that answers 402.
+          cargo-cache-clean: "false"
           # One library per platform, not one per Ruby: nothing here is a Ruby
           # extension. There is no Init_, nothing requires the result, and
           # Fiddle opens it by path -- so the same .so serves every Ruby that
