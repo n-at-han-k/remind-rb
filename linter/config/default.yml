@@ -105,6 +105,34 @@ TextAfterEofMarker:
   Enabled: true
   Severity: warning
 
+# An UNTIL or THROUGH date earlier than the FROM or SCANFROM it belongs with.
+# Remind warns about this one itself, at parse time; the linter says it in the
+# editor and in CI instead of only on stderr when someone runs the file.
+UntilBeforeFrom:
+  Enabled: true
+  Severity: error
+
+# $Latitude or $Longitude set to a bare number. Remind has no floating-point
+# type, so the coordinate has to arrive as a STRING; the failure is a
+# confidently wrong sunrise time rather than an error.
+CoordinateNotString:
+  Enabled: true
+  Severity: error
+
+# A function calling shell(), defined between RUN OFF and RUN ON. The
+# permission binds at definition, so the function fails even when it is called
+# later with RUN back on -- and the error names the call site, which is the one
+# place the mistake is not.
+ShellUseWhileRunDisabled:
+  Enabled: true
+  Severity: error
+
+# A comparison between literals of different types. Remind makes == a constant
+# 0 and != a constant 1 across types, silently; ordering raises Type mismatch.
+LiteralTypeMismatch:
+  Enabled: true
+  Severity: error
+
 # ---------------------------------------------------------------------------
 # Off by default: house style, and the one rule that executes the file.
 # ---------------------------------------------------------------------------

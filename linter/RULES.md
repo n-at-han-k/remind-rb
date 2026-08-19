@@ -26,13 +26,20 @@ The only rules in the set where being wrong is a hole rather than a wrong date.
 - [x] **IncludeCmdUnquotedPaste** — the same for `INCLUDECMD`. `examples/astro`
       writes `L="[lessons]"` carefully; nothing enforces that care today.
 
-## Tier 2 — exact, single-file, silent when wrong (10) — 8 of 10 DONE
+## Tier 2 — exact, single-file, silent when wrong (10) — DONE
 
 Closed sets and literal comparisons. No cross-file knowledge, no runtime values.
 
-Three of these turned out narrower than the book description implied, and each
-narrowing came from the source or the corpus rather than from reasoning. They
-are recorded inline below and in the rules' own doc comments.
+Four of these turned out narrower than the book description implied, and every
+narrowing came from the source, the man page or the corpus rather than from
+reasoning about it. They are recorded inline below and in the rules' own doc
+comments.
+
+Built as ten rule classes, because two pairs are one check each:
+`UnquotedShellSubstitution`, `ClauseRequiresAt`, `IftrigWithSatisfy`,
+`UnknownSubstitutionSequence`, `InfoSubstitutionWithoutHeader`,
+`TextAfterEofMarker`, `UntilBeforeFrom`, `CoordinateNotString`,
+`ShellUseWhileRunDisabled`, `LiteralTypeMismatch`.
 
 - [x] **UnknownSubstitutionSequence** — `dosubst.c:820` `default:` emits the
       character and drops the `%`. Silent. Valid set: `A`–`Z` case-insensitive
@@ -47,8 +54,11 @@ are recorded inline below and in the rules' own doc comments.
 - [x] **InfoSubstitutionWithoutHeader** — `%<Name>` with no matching `INFO` on
       the command. `FindTrigInfo` returns NULL and nothing is shipped
       (`dosubst.c:293`), so the body reads `Meeting at ` like a truncation bug.
-- [ ] **UntilBeforeFrom** — `UNTIL` on or before `FROM`. The reminder can never
-      fire and nothing reports it.
+- [x] **UntilBeforeFrom** — `UNTIL` earlier than `FROM`. **Two corrections.**
+      Remind is *not* silent: it warns at parse time, with a separate message
+      for `SCANFROM`, which the rule now covers too. And equal dates are a
+      legal one-day window that fires — `FROM 1992-01-06 UNTIL 1992-01-06`
+      triggers on the day — so the comparison is strict.
 - [x] **IftrigWithSatisfy** — `IFTRIG` takes any trigger a `REM` does *except*
       `SATISFY`. Easy to hit by copying a `REM`.
 - [x] **TimeZoneWithoutAt** + **DurationWithoutAt** — built as one rule,
@@ -57,18 +67,27 @@ are recorded inline below and in the rules' own doc comments.
       of a time. `include/lunar-eclipses.rem` supplies it from a pasted
       `[utctolocal(...)]` DATETIME, 142 times. A trigger containing any
       bracketed expression is now left alone.
-- [ ] **LatitudeLongitudeNotString** — Remind has no float type, so
-      `SET $Latitude 45.42` is not a near miss, it is a different thing.
-      Out-of-range values produce confidently wrong sunrise times. **Next.**
+- [x] **LatitudeLongitudeNotString** — built as `CoordinateNotString`. Remind
+      has no float type, so `SET $Latitude 45.42` is not a near miss, it is a
+      different thing. Out-of-range values produce confidently wrong sunrise
+      times.
 - [x] **TextAfterEofMarker** — `files.c:421`, exact match on a line of
       `__EOF__`. Everything below is dead text that reads like configuration.
-- [ ] **CrossTypeEqualityAlwaysFalse** — `==`/`!=` between literals of different
-      types is a constant 0. Whatever was meant, it was not that.
-- [ ] **ShellUseDefinedWhileRunDisabled** — `RUN` permission binds at *definition*
-      time, not call time, so a function defined between `RUN OFF` and `RUN ON`
-      fails with `RUN disabled` even when called later with `RUN` on.
+- [x] **CrossTypeEqualityAlwaysFalse** — built as `LiteralTypeMismatch`, which
+      also covers the ordering half of **OperandTypeMismatch**: `compare()` in
+      `expr.c` makes `==` a constant 0 and `!=` a constant 1 across types, and
+      raises `Type mismatch` for `<`, `>`, `<=`, `>=`.
+- [x] **ShellUseDefinedWhileRunDisabled** — built as `ShellUseWhileRunDisabled`.
+      Confirmed in the source: `userfns.c:280` captures the flag at definition
+      and `expr.c:777` re-applies it at every call.
 
-## Tier 3 — exact, worth having, lower frequency (20)
+## Tier 3 — exact, worth having, lower frequency (20) — NEXT
+
+`DateLiteral` (built for `UntilBeforeFrom`) already reads Remind's date forms
+in any order, so the three date-range rules are mostly wiring. `Trigger` gives
+the clause positions the time and priority rules need.
+
+
 
 - [ ] **TriggerComponentRange** / **DateConstantBeforeEpoch** /
       **DateOutsideRepresentableRange** — merge into one. `BASE 1990` +
