@@ -1,111 +1,179 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative "../lib/remind/version"
 require "fileutils"
 require "open3"
 
-local_version = Remind::VERSION
-gem_name = "remind-rb"
-gemspec = "remind-rb.gemspec"
-workflow = "cross-compile.yml"
-pkg_dir = "pkg"
+require_relative "../lib/remind/version"
+require_relative "../rem2ics/lib/rem2ics/version"
 
-# Releasing means publishing TWO kinds of gem for this version:
+# Releases both gems in this repository:
 #
-#   1. The source gem (remind-rb-X.Y.Z.W.gem) — the vendored Remind sources with
-#      no library built. It installs on any platform and compiles nothing;
-#      `rake compile` is what turns it into something that loads. A fallback,
-#      and a record of what the precompiled gems were built from.
-#   2. The precompiled platform gems (remind-rb-X.Y.Z.W-<platform>.gem) — built
-#      in CI by .github/workflows/cross-compile.yml with the shared library
-#      already inside, so `gem install remind-rb` needs no compiler.
+#   remind-rb   the bindings. Published as a source gem AND as one precompiled
+#               gem per platform, built in CI by cross-compile.yml with the
+#               shared library already inside, so installing compiles nothing.
+#   rem2ics     the converter. Pure Ruby, built here.
 #
-# This script builds (1) locally, downloads (2) from the latest successful CI
-# run, and pushes all of them to RubyGems.
+# Push order matters: rem2ics depends on remind-rb, so the bindings go first.
+# Each carries its own version -- one tracks Remind, the other does not -- so
+# each is checked, built and tagged on its own. Naming one on the command line
+# releases only that one.
+#
+# Pass --dry-run to build and verify without pushing.
 
-puts "Local version: #{local_version}"
+DRY_RUN = ARGV.delete("--dry-run") ? true : false
 
-# --- 1. Guard: local version must be ahead of what's already published. -------
-remote_output = `gem specification #{gem_name} version --remote 2>&1`
+WORKFLOW = "cross-compile.yml"
+PKG_DIR = "pkg"
 
-if $?.success?
-  remote_version = remote_output[/version: (.+)/, 1]&.strip
-  puts "Remote version: #{remote_version}"
+GEMS = [
+  {
+    name: "remind-rb",
+    version: Remind::VERSION,
+    directory: ".",
+    gemspec: "remind-rb.gemspec",
+    precompiled: true,
+  },
+  {
+    name: "rem2ics",
+    version: Rem2ics::VERSION,
+    directory: "rem2ics",
+    gemspec: "rem2ics.gemspec",
+    precompiled: false,
+  },
+].freeze
 
-  if Gem::Version.new(local_version) <= Gem::Version.new(remote_version)
-    abort "ERROR: Local version (#{local_version}) has not been incremented past remote (#{remote_version})"
-  end
-else
-  puts "Gem not yet published remotely, proceeding with first release"
+ROOT = File.expand_path("..", __dir__)
+Dir.chdir(ROOT)
+
+wanted = ARGV.first
+releasing = GEMS.select { |gem| wanted.nil? || gem[:name] == wanted }
+
+if releasing.empty?
+  abort "Usage: bin/release-gem [#{GEMS.map { |gem| gem[:name] }.join("|")}] [--dry-run]"
 end
 
-unless system("gh --version > /dev/null 2>&1")
-  abort "ERROR: the GitHub CLI (gh) is required to fetch precompiled gems: https://cli.github.com"
-end
+puts "Releasing #{releasing.map { |gem| "#{gem[:name]} #{gem[:version]}" }.join(", ")}" \
+     "#{" (dry run)" if DRY_RUN}"
+puts
 
-# --- 2. Build the source gem. -------------------------------------------------
-puts "\nBuilding source gem from #{gemspec}..."
-system("gem build #{gemspec}") || abort("ERROR: gem build failed")
-source_gem = "#{gem_name}-#{local_version}.gem"
+# --- 1. No drift: every suite must pass before anything is published. ---------
+puts "Running every suite..."
+system(File.join(__dir__, "test")) || abort("ERROR: tests failed; refusing to release")
+puts
 
-# --- 3. Download the precompiled platform gems from the latest green CI run. ---
-FileUtils.rm_rf(pkg_dir)
-FileUtils.mkdir_p(pkg_dir)
+# --- 2. Each gem must be ahead of what is already published. ------------------
+releasing.each do |gem|
+  remote = `gem specification #{gem[:name]} version --remote 2>&1`
 
-puts "\nLocating latest successful #{workflow} run..."
-run_id = `gh run list --workflow=#{workflow} --status success --limit 1 --json databaseId --jq '.[0].databaseId'`.strip
-if run_id.empty?
-  abort "ERROR: no successful #{workflow} run found. Push to main and let CI build the platform gems first."
-end
+  if $?.success?
+    published = remote[/version: (.+)/, 1]&.strip
+    puts "#{gem[:name]}: local #{gem[:version]}, remote #{published}"
 
-puts "Downloading precompiled gems from run #{run_id}..."
-system(
-  "gh",
-  "run",
-  "download",
-  run_id,
-  "--dir",
-  pkg_dir,
-  "--pattern",
-  "cross-gem-*",
-) ||
-  abort("ERROR: failed to download artifacts from run #{run_id}")
-
-platform_gems = Dir["#{pkg_dir}/**/#{gem_name}-#{local_version}-*.gem"].sort
-
-if platform_gems.empty?
-  built = Dir["#{pkg_dir}/**/*.gem"].map { |f| File.basename(f) }
-  if built.empty?
-    abort "ERROR: run #{run_id} produced no gems."
+    if Gem::Version.new(gem[:version]) <= Gem::Version.new(published)
+      abort "ERROR: #{gem[:name]} #{gem[:version]} is not ahead of published #{published}"
+    end
   else
-    abort "ERROR: the latest CI run built #{built.join(', ')}, not version #{local_version}.\n" \
-          "Push #{local_version} to main, wait for cross-compile to finish, then re-run."
+    puts "#{gem[:name]}: not yet published, first release"
   end
 end
+puts
 
-puts "Precompiled platform gems for #{local_version}:"
-platform_gems.each { |g| puts "  #{File.basename(g)}" }
+# --- 3. Build everything before pushing anything. -----------------------------
+# A bad build then aborts the whole release rather than leaving half of it on
+# RubyGems with a dependency pointing at a version that never arrived.
+FileUtils.rm_rf(PKG_DIR)
+FileUtils.mkdir_p(PKG_DIR)
 
-# --- 4. Push the source gem + every precompiled platform gem. -----------------
-# Tolerate gems already on RubyGems so the release is resumable if it dies
-# partway through.
-all_gems = [source_gem] + platform_gems
-all_gems.each do |gem_file|
-  puts "\nPushing #{File.basename(gem_file)}..."
-  out, status = Open3.capture2e("gem", "push", gem_file)
-  print out
-  if status.success?
-    next
+def build(gem)
+  puts "Building #{gem[:gemspec]}..."
+  package = File.join(ROOT, PKG_DIR, "#{gem[:name]}-#{gem[:version]}.gem")
+
+  system("gem", "build", gem[:gemspec], "--output", package, chdir: File.join(ROOT, gem[:directory])) ||
+    abort("ERROR: gem build failed for #{gem[:name]}")
+
+  package
+end
+
+# The precompiled gems are not built here -- they are built on the platforms
+# they are for, by CI, because ./configure probes the machine it runs on.
+def download_precompiled(gem)
+  abort "ERROR: the GitHub CLI (gh) is required to fetch precompiled gems: https://cli.github.com" \
+    unless system("gh --version > /dev/null 2>&1")
+
+  puts "Locating latest successful #{WORKFLOW} run..."
+  run_id = `gh run list --workflow=#{WORKFLOW} --status success --limit 1 --json databaseId --jq '.[0].databaseId'`.strip
+
+  if run_id.empty?
+    abort "ERROR: no successful #{WORKFLOW} run found. Push to main and let CI build the platform gems first."
   end
+
+  puts "Downloading precompiled gems from run #{run_id}..."
+  system("gh", "run", "download", run_id, "--dir", PKG_DIR, "--pattern", "cross-gem-*") ||
+    abort("ERROR: failed to download artifacts from run #{run_id}")
+
+  found = Dir["#{PKG_DIR}/**/#{gem[:name]}-#{gem[:version]}-*.gem"].sort
+
+  if found.empty?
+    built = Dir["#{PKG_DIR}/**/*.gem"].map { |path| File.basename(path) }
+
+    abort "ERROR: run #{run_id} produced no gems." if built.empty?
+    abort "ERROR: the latest CI run built #{built.join(", ")}, not version #{gem[:version]}.\n" \
+          "Push #{gem[:version]} to main, wait for #{WORKFLOW} to finish, then re-run."
+  end
+
+  puts "Precompiled platform gems for #{gem[:version]}:"
+  found.each { |path| puts "  #{File.basename(path)}" }
+
+  found
+end
+
+packages = releasing.to_h do |gem|
+  built = [build(gem)]
+  built += download_precompiled(gem) if gem[:precompiled]
+
+  [gem[:name], built]
+end
+puts
+
+# --- 4. Push in dependency order, tolerating what is already there. -----------
+# A release that dies partway through can simply be re-run.
+def push(package)
+  puts "Pushing #{File.basename(package)}..."
+  out, status = Open3.capture2e("gem", "push", package)
+  print out
+
+  return if status.success?
 
   if out.include?("has already been pushed")
-    puts "  (already published — skipping)"
-    next
+    puts "  (already published -- skipping)"
+    return
   end
 
-  abort "ERROR: gem push failed for #{gem_file}"
+  abort "ERROR: gem push failed for #{package}"
 end
 
-puts "\nReleased #{gem_name} #{local_version} " \
-     "(1 source + #{platform_gems.size} precompiled platform gems)"
+releasing.each do |gem|
+  packages.fetch(gem[:name]).each do |package|
+    if DRY_RUN
+      puts "[dry run] would push #{File.basename(package)}"
+    else
+      push(package)
+    end
+  end
+end
+
+puts
+if DRY_RUN
+  puts "Dry run complete -- #{packages.values.flatten.length} package(s) build cleanly"
+  releasing.each { |gem| puts "[dry run] would tag #{gem[:name]}-v#{gem[:version]}" }
+else
+  # Tag only once the gems are actually published, so a tag never points at an
+  # unreleased version.
+  releasing.each do |gem|
+    puts "Released #{gem[:name]} #{gem[:version]} (#{packages.fetch(gem[:name]).length} package(s))"
+
+    system(File.join(__dir__, "tag-version"), gem[:name]) ||
+      abort("ERROR: release succeeded but tagging #{gem[:name]} failed")
+  end
+end

@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../lib/remind/version"
+require_relative "../rem2ics/lib/rem2ics/version"
+
+# Tags one gem at its own version. The two here release independently -- one
+# tracks Remind, the other does not -- so a bare `v6.2.10.0` would be a tag
+# that does not say what it is for.
+
+VERSIONS = {
+  "remind-rb" => Remind::VERSION,
+  "rem2ics" => Rem2ics::VERSION,
+}.freeze
+
+name = ARGV[0]
+version = VERSIONS[name] or abort "Usage: bin/tag-version <#{VERSIONS.keys.join("|")}>"
+tag = "#{name}-v#{version}"
+
+abort "ERROR: Tag #{tag} already exists" unless `git tag -l #{tag}`.strip.empty?
+
+system("git", "tag", tag) || abort("ERROR: Failed to create tag #{tag}")
+puts "Tagged #{tag}"
+
+system("git", "push", "--tags") || abort("ERROR: Failed to push tag #{tag}")
+puts "Pushed #{tag}"

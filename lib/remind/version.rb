@@ -5,7 +5,7 @@ module Remind
   # of Remind this gem vendors and binds; the fourth is ours, bumped for
   # changes on the Ruby side against that same release. Managed by
   # bin/increment-version -- edit that, not this.
-  VERSION = "6.2.10.0"
+  VERSION = "6.2.10.1"
 
   # The vendored source directory is named for the release, in Remind's own
   # zero-padded spelling.

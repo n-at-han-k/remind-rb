@@ -127,15 +127,15 @@
               export TZDIR=${pkgs.tzdata}/share/zoneinfo
 
             # Gems install per Ruby version, beside the ones the rest of the
-            # system uses, and this repository's Gemfile is the one bundler
-            # reads -- otherwise whichever project the shell wandered in from
-            # decides what `bundle exec` can find.
+            # system uses. BUNDLE_GEMFILE is deliberately NOT set: there are two
+            # bundles here -- the bindings' and the converter's -- and pinning
+            # one of them makes `bundle install` in the other write its lockfile
+            # to the wrong place.
             export GEM_HOME="$HOME/.gem-${pkgs.ruby.version}"
             export GEM_PATH="$GEM_HOME"
             # Appended, not prepended: the tools this shell provides -- lefthook
             # among them -- win over any gem-installed copy of the same name.
             export PATH="$PATH:$GEM_HOME/bin"
-            export BUNDLE_GEMFILE="$PWD/Gemfile"
             '';
 
             postInstall = lib.optionalString withGui ''
@@ -334,15 +334,15 @@
             export TZDIR=${pkgs.tzdata}/share/zoneinfo
 
             # Gems install per Ruby version, beside the ones the rest of the
-            # system uses, and this repository's Gemfile is the one bundler
-            # reads -- otherwise whichever project the shell wandered in from
-            # decides what `bundle exec` can find.
+            # system uses. BUNDLE_GEMFILE is deliberately NOT set: there are two
+            # bundles here -- the bindings' and the converter's -- and pinning
+            # one of them makes `bundle install` in the other write its lockfile
+            # to the wrong place.
             export GEM_HOME="$HOME/.gem-${pkgs.ruby.version}"
             export GEM_PATH="$GEM_HOME"
             # Appended, not prepended: the tools this shell provides -- lefthook
             # among them -- win over any gem-installed copy of the same name.
             export PATH="$PATH:$GEM_HOME/bin"
-            export BUNDLE_GEMFILE="$PWD/Gemfile"
             echo "Remind ${version} sources are in remind-v${version}/; the Ruby bindings are at the root."
             echo "C:    cd remind-v${version} && ./configure --prefix=\$PWD/_install && make && make test"
             echo "Ruby: rake library && rake test"
